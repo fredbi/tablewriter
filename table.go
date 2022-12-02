@@ -54,6 +54,7 @@ type Table struct {
 	rows                    [][]string
 	lines                   [][][]string
 	cs                      map[int]int
+	ms                      map[int]int
 	rs                      map[int]int
 	headers                 [][]string
 	footers                 [][]string
@@ -94,6 +95,7 @@ func NewWriter(writer io.Writer) *Table {
 		rows:          [][]string{},
 		lines:         [][][]string{},
 		cs:            make(map[int]int),
+		ms:            make(map[int]int),
 		rs:            make(map[int]int),
 		headers:       [][]string{},
 		footers:       [][]string{},
@@ -190,7 +192,7 @@ func (t *Table) SetReflowDuringAutoWrap(auto bool) {
 	t.reflowText = auto
 }
 
-// Set the Default column width
+// Set the Default column width. Applies to all columns. The default is 30 runes.
 func (t *Table) SetColWidth(width int) {
 	t.mW = width
 }
@@ -198,6 +200,28 @@ func (t *Table) SetColWidth(width int) {
 // Set the minimal width for a column
 func (t *Table) SetColMinWidth(column int, width int) {
 	t.cs[column] = width
+}
+
+// SetColMinWidths sets the minimal widths for columns
+func (t *Table) SetColMinWidths(minWidths map[int]int) {
+	for k, v := range minWidths {
+		t.cs[k] = v
+	}
+}
+
+// Set the maximal width for a column.
+//
+// Only applies whe AutoWrapText is set to true.
+// This overrides the default column width.
+func (t *Table) SetColMaxWidth(column int, width int) {
+	t.ms[column] = width
+}
+
+// Set the maximal width for columns.
+func (t *Table) SetColMaxWidths(maxWidths map[int]int) {
+	for k, v := range maxWidths {
+		t.ms[k] = v
+	}
 }
 
 // Set the Column Separator
@@ -1009,14 +1033,19 @@ func (t *Table) parseDimension(str string, colKey, rowKey int) []string {
 	// If wrapping, ensure that all paragraphs in the cell fit in the
 	// specified width.
 	if t.autoWrap {
+		maxAllowedWidth, isDefined := t.ms[colKey]
+		if !isDefined {
+			maxAllowedWidth = t.mW
+		}
+
 		// If there's a maximum allowed width for wrapping, use that.
-		if maxWidth > t.mW {
-			maxWidth = t.mW
+		if maxWidth > maxAllowedWidth {
+			maxWidth = maxAllowedWidth
 		}
 
 		// In the process of doing so, we need to recompute maxWidth. This
 		// is because perhaps a word in the cell is longer than the
-		// allowed maximum width in t.mW.
+		// allowed maximum width in maxAllowedWidth.
 		newMaxWidth := maxWidth
 		newRaw := make([]string, 0, len(raw))
 

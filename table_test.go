@@ -131,11 +131,11 @@ func TestCSVInfo(t *testing.T) {
 	table.Render()
 
 	got := buf.String()
-	want := `   FIELD   |     TYPE     | NULL | KEY | DEFAULT |     EXTRA       
+	want := `   FIELD   |     TYPE     | NULL | KEY | DEFAULT |     EXTRA
 -----------+--------------+------+-----+---------+-----------------
-  user_id  | smallint(5)  | NO   | PRI | NULL    | auto_increment  
-  username | varchar(10)  | NO   |     | NULL    |                 
-  password | varchar(100) | NO   |     | NULL    |                 
+  user_id  | smallint(5)  | NO   | PRI | NULL    | auto_increment
+  username | varchar(10)  | NO   |     | NULL    |
+  password | varchar(100) | NO   |     | NULL    |
 `
 	checkEqual(t, got, want, "CSV info failed")
 }
@@ -187,17 +187,17 @@ func TestNoBorder(t *testing.T) {
 	table.AppendBulk(data)                                // Add Bulk Data
 	table.Render()
 
-	want := `    DATE   |       DESCRIPTION        |  CV2  | AMOUNT   
+	want := `    DATE   |       DESCRIPTION        |  CV2  | AMOUNT
 -----------+--------------------------+-------+----------
-  1/1/2014 | Domain name              |  2233 | $10.98   
-  1/1/2014 | January Hosting          |  2233 | $54.95   
-           |     (empty)              |       |          
-           |     (empty)              |       |          
-  1/4/2014 | February Hosting         |  2233 | $51.00   
-  1/4/2014 | February Extra Bandwidth |  2233 | $30.00   
-  1/4/2014 |     (Discount)           |  2233 | -$1.00   
+  1/1/2014 | Domain name              |  2233 | $10.98
+  1/1/2014 | January Hosting          |  2233 | $54.95
+           |     (empty)              |       |
+           |     (empty)              |       |
+  1/4/2014 | February Hosting         |  2233 | $51.00
+  1/4/2014 | February Extra Bandwidth |  2233 | $30.00
+  1/4/2014 |     (Discount)           |  2233 | -$1.00
 -----------+--------------------------+-------+----------
-                                        TOTAL | $145.93  
+                                        TOTAL | $145.93
                                       --------+----------
 `
 
@@ -395,14 +395,14 @@ func TestPrintCaptionWithFooter(t *testing.T) {
 	table.AppendBulk(data)                                                                                 // Add Bulk Data
 	table.Render()
 
-	want := `    DATE   |       DESCRIPTION        |  CV2  | AMOUNT   
+	want := `    DATE   |       DESCRIPTION        |  CV2  | AMOUNT
 -----------+--------------------------+-------+----------
-  1/1/2014 | Domain name              |  2233 | $10.98   
-  1/1/2014 | January Hosting          |  2233 | $54.95   
-  1/4/2014 | February Hosting         |  2233 | $51.00   
-  1/4/2014 | February Extra Bandwidth |  2233 | $30.00   
+  1/1/2014 | Domain name              |  2233 | $10.98
+  1/1/2014 | January Hosting          |  2233 | $54.95
+  1/4/2014 | February Hosting         |  2233 | $51.00
+  1/4/2014 | February Extra Bandwidth |  2233 | $30.00
 -----------+--------------------------+-------+----------
-                                        TOTAL | $146.93  
+                                        TOTAL | $146.93
                                       --------+----------
 This is a very long caption. The text should wrap to the
 width of the table.
@@ -411,22 +411,13 @@ width of the table.
 }
 
 func TestPrintLongCaptionWithLongExample(t *testing.T) {
-	var buf bytes.Buffer
+	header := []string{"Name", "Sign", "Rating"}
 	data := [][]string{
 		{"Learn East has computers with adapted keyboards with enlarged print etc", "Some Data", "Another Data"},
 		{"Instead of lining up the letters all", "the way across, he splits the keyboard in two", "Like most ergonomic keyboards"},
 	}
-
-	table := NewWriter(&buf)
-	table.SetCaption(true, "This is a very long caption. The text should wrap. If not, we have a problem that needs to be solved.")
-	table.SetHeader([]string{"Name", "Sign", "Rating"})
-
-	for _, v := range data {
-		table.Append(v)
-	}
-	table.Render()
-
-	want := `+--------------------------------+--------------------------------+-------------------------------+
+	const (
+		expectedTable = `+--------------------------------+--------------------------------+-------------------------------+
 |              NAME              |              SIGN              |            RATING             |
 +--------------------------------+--------------------------------+-------------------------------+
 | Learn East has computers       | Some Data                      | Another Data                  |
@@ -435,10 +426,102 @@ func TestPrintLongCaptionWithLongExample(t *testing.T) {
 | Instead of lining up the       | the way across, he splits the  | Like most ergonomic keyboards |
 | letters all                    | keyboard in two                |                               |
 +--------------------------------+--------------------------------+-------------------------------+
-This is a very long caption. The text should wrap. If not, we have a problem that needs to be
+`
+		expectedCaption = `This is a very long caption. The text should wrap. If not, we have a problem that needs to be
 solved.
 `
-	checkEqual(t, buf.String(), want, "long caption for long example rendering failed")
+	)
+
+	t.Run("should render caption", func(t *testing.T) {
+		var buf bytes.Buffer
+		table := NewWriter(&buf)
+		table.SetCaption(true, "This is a very long caption. The text should wrap. If not, we have a problem that needs to be solved.")
+		table.SetHeader(header)
+
+		for _, v := range data {
+			table.Append(v)
+		}
+		table.Render()
+
+		const expected = expectedTable + expectedCaption
+		checkEqual(t, buf.String(), expected, "long caption for long example rendering failed")
+	})
+
+	t.Run("should wrap first col only", func(t *testing.T) {
+		var buf bytes.Buffer
+		table := NewWriter(&buf)
+		table.SetAutoWrapText(true)
+		table.SetHeader(header)
+		table.SetColWidth(50)
+		table.SetColMaxWidth(0, 10)
+
+		for _, v := range data {
+			table.Append(v)
+		}
+		table.Render()
+
+		const (
+			expected = `+------------+-----------------------------------------------+-------------------------------+
+|    NAME    |                     SIGN                      |            RATING             |
++------------+-----------------------------------------------+-------------------------------+
+| Learn      | Some Data                                     | Another Data                  |
+| East has   |                                               |                               |
+| computers  |                                               |                               |
+| with       |                                               |                               |
+| adapted    |                                               |                               |
+| keyboards  |                                               |                               |
+| with       |                                               |                               |
+| enlarged   |                                               |                               |
+| print etc  |                                               |                               |
+| Instead    | the way across, he splits the keyboard in two | Like most ergonomic keyboards |
+| of lining  |                                               |                               |
+| up the     |                                               |                               |
+| letters    |                                               |                               |
+| all        |                                               |                               |
++------------+-----------------------------------------------+-------------------------------+
+`
+		)
+
+		checkEqual(t, buf.String(), expected)
+	})
+
+	t.Run("should wrap first and third cols only", func(t *testing.T) {
+		var buf bytes.Buffer
+		table := NewWriter(&buf)
+		table.SetAutoWrapText(true)
+		table.SetHeader(header)
+		table.SetColWidth(50)
+		table.SetColMaxWidths(map[int]int{0: 10, 2: 12})
+
+		for _, v := range data {
+			table.Append(v)
+		}
+		table.Render()
+
+		const (
+			expected = `+------------+-----------------------------------------------+--------------+
+|    NAME    |                     SIGN                      |    RATING    |
++------------+-----------------------------------------------+--------------+
+| Learn      | Some Data                                     | Another Data |
+| East has   |                                               |              |
+| computers  |                                               |              |
+| with       |                                               |              |
+| adapted    |                                               |              |
+| keyboards  |                                               |              |
+| with       |                                               |              |
+| enlarged   |                                               |              |
+| print etc  |                                               |              |
+| Instead    | the way across, he splits the keyboard in two | Like most    |
+| of lining  |                                               | ergonomic    |
+| up the     |                                               | keyboards    |
+| letters    |                                               |              |
+| all        |                                               |              |
++------------+-----------------------------------------------+--------------+
+`
+		)
+
+		checkEqual(t, buf.String(), expected)
+	})
 }
 
 func Example_autowrap() {
@@ -762,10 +845,10 @@ func TestSubclass(t *testing.T) {
 	}
 	table.Render()
 
-	want := `  A  The Good               500  
-  B  The Very very Bad Man  288  
-  C  The Ugly               120  
-  D  The Gopher             800  
+	want := `  A  The Good               500
+  B  The Very very Bad Man  288
+  C  The Ugly               120
+  D  The Gopher             800
 `
 	checkEqual(t, buf.String(), want, "test subclass failed")
 }
@@ -1172,11 +1255,11 @@ func TestKubeFormat(t *testing.T) {
 	table.AppendBulk(data) // Add Bulk Data
 	table.Render()
 
-	want := `DATE    	DESCRIPTION        	CV2 	AMOUNT 
-1/1/2014	jan_hosting        	2233	$10.98	
-1/1/2014	feb_hosting        	2233	$54.95	
-1/4/2014	feb_extra_bandwidth	2233	$51.00	
-1/4/2014	mar_hosting        	2233	$30.00	
+	want := `DATE    	DESCRIPTION        	CV2 	AMOUNT
+1/1/2014	jan_hosting        	2233	$10.98
+1/1/2014	feb_hosting        	2233	$54.95
+1/4/2014	feb_extra_bandwidth	2233	$51.00
+1/4/2014	mar_hosting        	2233	$30.00
 `
 
 	checkEqual(t, buf.String(), want, "kube format rendering failed")
