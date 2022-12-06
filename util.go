@@ -93,7 +93,3 @@ func normalizeRowHeight(columns [][]string, height int) [][]string {
 
 	return columns
 }
-
-func isNumerical(str string) bool {
-	return decimal.MatchString(strings.TrimSpace(str)) || percent.MatchString(strings.TrimSpace(str))
-}

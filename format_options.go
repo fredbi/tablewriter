@@ -9,6 +9,21 @@ import (
 // It wraps some argument with an appropriate ANSI terminal escape sequence.
 type Formatter = func(interface{}) aurora.Value
 
+type formatOptions struct {
+	headerParams  map[int]Formatter
+	columnsParams map[int]Formatter
+	footerParams  map[int]Formatter
+	captionParams Formatter
+}
+
+func defaultFormatOptions() formatOptions {
+	return formatOptions{
+		headerParams:  make(map[int]Formatter),
+		columnsParams: make(map[int]Formatter),
+		footerParams:  make(map[int]Formatter),
+	}
+}
+
 func format(in string, formatter Formatter) string {
 	if formatter == nil {
 		return in
@@ -39,5 +54,12 @@ func WithFooterFormatters(formatters map[int]Formatter) Option {
 func WithColFormatters(formatters map[int]Formatter) Option {
 	return func(o *options) {
 		o.columnsParams = formatters
+	}
+}
+
+// WithCaptionFormatter allows to specify ANSI terminal control sequences to format the table caption.
+func WithCaptionFormatter(formatter Formatter) Option {
+	return func(o *options) {
+		o.captionParams = formatter
 	}
 }

@@ -1,13 +1,18 @@
 ASCII Table Writer
 =========
 
-[![ci](https://github.com/olekukonko/tablewriter/workflows/ci/badge.svg?branch=master)](https://github.com/olekukonko/tablewriter/actions?query=workflow%3Aci)
-[![Total views](https://img.shields.io/sourcegraph/rrc/github.com/olekukonko/tablewriter.svg)](https://sourcegraph.com/github.com/olekukonko/tablewriter)
-[![Godoc](https://godoc.org/github.com/olekukonko/tablewriter?status.svg)](https://godoc.org/github.com/olekukonko/tablewriter)
+[![ci](https://github.com/fredbi/tablewriter/workflows/ci/badge.svg?branch=master)](https://github.com/fredbi/tablewriter/actions?query=workflow%3Aci)
+[![Total views](https://img.shields.io/sourcegraph/rrc/github.com/fredbi/tablewriter.svg)](https://sourcegraph.com/github.com/fredbi/tablewriter)
+[![Godoc](https://godoc.org/github.com/fredbi/tablewriter?status.svg)](https://godoc.org/github.com/fredbi/tablewriter)
 
-Generate ASCII table on the fly ...  Installation is simple as
+> A fork from `github.com/olekukonko/tablewriter`.
+> Credits to Oleku Konko , Mitsuo Heijo and mattn for this great original contribution.
 
-    go get github.com/olekukonko/tablewriter
+A go library to generate ASCII tables.
+
+```
+    go get github.com/fredbi/tablewriter
+```
 
 
 #### Features
@@ -427,5 +432,6 @@ func main() {
 - ~~Support for `SetBorder`~~  - `done`
 - ~~Support table with uneven rows~~ - `done`
 - ~~Support custom alignment~~
-- General Improvement & Optimisation
-- `NewHTML` Parse table from HTML
+- refact: more refactoring of the padding logic
+- debug: noWhiteSpace is buggy
+- feat: more general wrapper

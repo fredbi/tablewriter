@@ -12,7 +12,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"regexp"
 	"strings"
 )
 
@@ -21,15 +20,10 @@ const (
 	footerRowIdx = -2
 )
 
-var (
-	decimal = regexp.MustCompile(`^-?(?:\d{1,3}(?:,\d{3})*|\d+)(?:\.\d+)?$`)
-	percent = regexp.MustCompile(`^-?\d+\.?\d*$%$`)
-)
-
 type Table struct {
 	*options
 
-	// internal multi-line representation
+	// internal multi-line representations of rows
 	lines                   [][][]string // multi-line cells
 	headers                 [][]string
 	footers                 [][]string
@@ -38,6 +32,7 @@ type Table struct {
 	columnsAlign            []HAlignment
 }
 
+// New builds a new empty table writer.
 func New(opts ...Option) *Table {
 	t := &Table{
 		lines:      [][][]string{},
@@ -51,6 +46,7 @@ func New(opts ...Option) *Table {
 	return t
 }
 
+// NewBuffered builds a new empty table writer that writes in a new bytes.Buffer.
 func NewBuffered(opts ...Option) (*Table, *bytes.Buffer) {
 	buf := &bytes.Buffer{}
 
@@ -62,14 +58,17 @@ func (t *Table) Append(row []string) {
 	t.rows = append(t.rows, row)
 }
 
+// Rows of this table.
 func (t *Table) Rows() [][]string {
 	return t.rows
 }
 
+// Header of this table.
 func (t *Table) Header() []string {
 	return t.header
 }
 
+// Footer of this table.
 func (t *Table) Footer() []string {
 	return t.footer
 }
@@ -124,6 +123,20 @@ func (t *Table) prepare() {
 	}
 }
 
+func (t *Table) fillAlignments() {
+	num := t.numColumns
+	t.columnsAlign = make([]HAlignment, 0, num)
+
+	for i := 0; i < num; i++ {
+		alignment, ok := t.perColumnAlign[i]
+		if !ok {
+			alignment = t.cellAlign
+		}
+
+		t.columnsAlign = append(t.columnsAlign, alignment)
+	}
+}
+
 // setNumColumns determines the number of columns for this table, aligned to the row
 // (or header, or footer) with the largest number of columns.
 func (t *Table) setNumColumns() {
@@ -166,7 +179,7 @@ func (t *Table) setNumColumns() {
 func (t *Table) center(i int) string {
 	switch {
 	case i == -1 && !t.borders.Left:
-		fallthrough
+		fallthrough // -
 	case i == len(t.cs)-1 && !t.borders.Right:
 		return t.pRow // -
 	default:
@@ -280,7 +293,7 @@ func (t *Table) printHeader() {
 		return
 	}
 
-	padder := pad(t.headerAlign) // a padder to implement the header's alignment spec
+	padder := t.headerAlign.padder()
 	maxHeight := t.rs[headerRowIdx]
 	headerLines := normalizeRowHeight(t.headers, maxHeight)
 
@@ -372,9 +385,10 @@ func (t *Table) printHeader() {
 
 		for col := 0; col < len(t.cs); col++ {
 			value := headerLines[col][line]
-			fmt.Fprint(t.out, colLeftPad(value, col, line)) // ICI
+			fmt.Fprint(t.out, colLeftPad(value, col, line))
 			fmt.Fprint(t.out, transform(col)(
-				padder(prepadding(value),
+				padder(
+					prepadding(value),
 					SPACE, t.cs[col],
 				),
 			),
@@ -424,7 +438,7 @@ func (t *Table) printFooter() {
 	}
 
 	end := len(t.cs) - 1
-	padder := pad(t.footerAlign)
+	padder := t.footerAlign.padder()
 	maxHeight := t.rs[footerRowIdx]
 	footerLines := normalizeRowHeight(t.footers, maxHeight)
 
@@ -554,26 +568,42 @@ func (t *Table) printFooterSeparator() {
 // Print caption text
 func (t Table) printCaption() {
 	width := t.getTableWidth()
-	paragraph, _ := WrapString(t.captionText, width)
+	paragraph, _ := WrapString(t.captionText, width) // TODO: use Wrapper
 
 	for linecount := 0; linecount < len(paragraph); linecount++ {
-		fmt.Fprintln(t.out, paragraph[linecount])
+		fmt.Fprintln(t.out, format(paragraph[linecount], t.captionParams))
 	}
 }
 
 // Calculate the total number of characters in a row
+//
+// TODO: what happens when noBlankSpace is true?
+// TODO: test when with or without borders
 func (t Table) getTableWidth() int {
 	var chars int
-	for _, v := range t.cs {
-		chars += v
+
+	col := displayWidth(t.pColumn)
+	padding := displayWidth(t.tablePadding)
+
+	//if t.borders.Left {
+	chars += col
+	chars += padding
+	//}
+
+	for _, width := range t.cs {
+		chars += width
+		chars += padding
+		chars += col
 	}
 
-	// Add chars, spaces, seperators to calculate the total width of the table.
-	// ncols := t.numColumns
-	// spaces := ncols * 2
-	// seps := ncols + 1
+	//if t.borders.Right {
+	chars += displayWidth(t.tablePadding)
+	chars += col
+	//}
 
-	return (chars + (3 * t.numColumns) + 2) // wrong: TODO
+	return chars
+
+	// OLD return (chars + (3 * t.numColumns) + 2)
 }
 
 // printRows renders all row lines.
@@ -583,39 +613,8 @@ func (t Table) printRows() {
 	}
 }
 
-func (t *Table) fillAlignments() {
-	num := t.numColumns
-	t.columnsAlign = make([]HAlignment, 0, num)
-
-	for i := 0; i < num; i++ {
-		alignment, ok := t.perColumnAlign[i]
-		if !ok {
-			alignment = t.cellAlign
-		}
-
-		t.columnsAlign = append(t.columnsAlign, alignment)
-	}
-}
-
-func (t *Table) alignCell(str, pad string, col int) string {
-	var fn padFunc
-
-	switch t.columnsAlign[col] {
-	case AlignCenter:
-		fn = padCenter
-	case AlignRight:
-		fn = padLeft
-	case AlignLeft:
-		fn = padRight
-	default:
-		if isNumerical(str) {
-			fn = padLeft
-		} else {
-			fn = padRight
-		}
-	}
-
-	return fn(str, pad, t.cs[col])
+func (t *Table) cellAligner(col int) padFunc {
+	return t.columnsAlign[col].padder()
 }
 
 // printRow renders a single table row.
@@ -626,21 +625,7 @@ func (t *Table) printRow(columns [][]string, rowIdx int) {
 	numColumns := len(columns)
 	columns = normalizeRowHeight(columns, maxHeight)
 
-	padder := t.alignCell
-	transform := func(i int) func(string) string {
-		return func(in string) string {
-			if t.isEscSeq(t.columnsParams) {
-				in = format(in, t.columnsParams[i])
-			}
-
-			if t.isRightMost(i) {
-				in = strings.TrimRightFunc(in, BlankSplitter)
-			}
-
-			return in
-		}
-	}
-
+	transform := t.transformer(t.columnsParams)
 	colLeftPad := func(in string, i, _ int) string {
 		if t.isRightMost(i) {
 			if !t.noWhiteSpace {
@@ -673,12 +658,14 @@ func (t *Table) printRow(columns [][]string, rowIdx int) {
 		return t.tablePadding
 	}
 
-	for line := 0; line < maxHeight; line++ { // iterate over cell lines for this row
-		for col := 0; col < numColumns; col++ { // iterate over the columns for this row
+	for line := 0; line < maxHeight; line++ {
+		for col := 0; col < numColumns; col++ {
+			padder := t.cellAligner(col)
+			colWidth := t.cs[col]
 			value := columns[col][line]
 
 			fmt.Fprint(t.out, colLeftPad(value, col, line))
-			fmt.Fprint(t.out, transform(col)(padder(value, SPACE, col)))
+			fmt.Fprint(t.out, transform(col)(padder(value, SPACE, colWidth)))
 			fmt.Fprint(t.out, colRightPad(value, col, line))
 		}
 

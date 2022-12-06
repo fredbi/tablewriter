@@ -39,12 +39,6 @@ type (
 		newLine string
 	}
 
-	formatOptions struct {
-		headerParams  map[int]Formatter
-		columnsParams map[int]Formatter
-		footerParams  map[int]Formatter
-	}
-
 	alignOptions struct {
 		headerAlign    HAlignment
 		footerAlign    HAlignment
@@ -136,18 +130,10 @@ func defaultSeparatorOptions() separatorOptions {
 
 func defaultAlignOptions() alignOptions {
 	return alignOptions{
-		headerAlign:    AlignDefault,
-		footerAlign:    AlignDefault,
+		headerAlign:    AlignCenter,
+		footerAlign:    AlignCenter,
 		cellAlign:      AlignDefault,
 		perColumnAlign: make(map[int]HAlignment),
-	}
-}
-
-func defaultFormatOptions() formatOptions {
-	return formatOptions{
-		headerParams:  make(map[int]Formatter),
-		columnsParams: make(map[int]Formatter),
-		footerParams:  make(map[int]Formatter),
 	}
 }
 

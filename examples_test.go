@@ -6,18 +6,21 @@ import (
 	"log"
 	"os"
 
+	"github.com/fredbi/tablewriter"
 	"github.com/logrusorgru/aurora/v4"
-	"github.com/olekukonko/tablewriter"
 )
 
-func ExampleTable() {
-	data := [][]string{
+func sampleData() [][]string {
+	return [][]string{
 		{"A", "The Good", "500"},
 		{"B", "The Very very Bad Man", "288"},
 		{"C", "The Ugly", "120"},
 		{"D", "The Gopher", "800"},
 	}
+}
 
+func ExampleTable() {
+	data := sampleData()
 	table := tablewriter.New(
 		tablewriter.WithHeader([]string{"Name", "Sign", "Rating"}),
 		tablewriter.WithRows(data),
@@ -25,7 +28,8 @@ func ExampleTable() {
 
 	table.Render()
 
-	// Output: +------+-----------------------+--------+
+	// Output:
+	// +------+-----------------------+--------+
 	// | NAME |         SIGN          | RATING |
 	// +------+-----------------------+--------+
 	// | A    | The Good              |    500 |
@@ -467,13 +471,7 @@ string with some lines being really long.`
 }
 
 func ExampleFormatter() {
-	data := [][]string{
-		{"A", "The Good", "500"},
-		{"B", "The Very very Bad Man", "288"},
-		{"C", "The Ugly", "120"},
-		{"D", "The Gopher", "800"},
-	}
-
+	data := sampleData()
 	table := tablewriter.New(
 		tablewriter.WithHeader([]string{"Name", "Sign", "Rating"}),
 		tablewriter.WithRows(data),
@@ -486,7 +484,8 @@ func ExampleFormatter() {
 
 	table.Render()
 
-	// Output: +------+-----------------------+--------+
+	// Output:
+	// +------+-----------------------+--------+
 	// | [31mNAME[0m | [34m        SIGN         [0m | [1mRATING[0m |
 	// +------+-----------------------+--------+
 	// | A    | The Good              |    500 |
@@ -494,4 +493,32 @@ func ExampleFormatter() {
 	// | C    | The Ugly              |    120 |
 	// | D    | The Gopher            |    800 |
 	// +------+-----------------------+--------+
+}
+
+func ExampleWithRowSeparator() {
+	data := sampleData()
+	red := func(in string) string {
+		return aurora.Sprintf(aurora.Red(in))
+	}
+
+	// prints a colorized grid
+	table := tablewriter.New(
+		tablewriter.WithHeader([]string{"Name", "Sign", "Rating"}),
+		tablewriter.WithRows(data),
+		tablewriter.WithRowSeparator(red(tablewriter.ROW)),
+		tablewriter.WithColumnSeparator(red(tablewriter.COLUMN)),
+		tablewriter.WithCenterSeparator(red(tablewriter.CENTER)),
+	)
+
+	table.Render()
+
+	// Output:
+	// [31m+[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m+[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m+[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m+[0m
+	// [31m|[0m NAME [31m|[0m         SIGN          [31m|[0m RATING [31m|[0m
+	// [31m+[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m+[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m+[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m+[0m
+	// [31m|[0m A    [31m|[0m The Good              [31m|[0m    500 [31m|[0m
+	// [31m|[0m B    [31m|[0m The Very very Bad Man [31m|[0m    288 [31m|[0m
+	// [31m|[0m C    [31m|[0m The Ugly              [31m|[0m    120 [31m|[0m
+	// [31m|[0m D    [31m|[0m The Gopher            [31m|[0m    800 [31m|[0m
+	// [31m+[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m+[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m+[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m+[0m
 }
