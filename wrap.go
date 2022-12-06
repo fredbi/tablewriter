@@ -5,37 +5,179 @@
 // This module is a Table Writer  API for the Go Programming Language.
 // The protocols were written in pure Go and works on windows and unix systems
 
+//nolint:unused,unparam,staticcheck
 package tablewriter
 
 import (
 	"math"
+	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/mattn/go-runewidth"
 )
 
-var (
-	nl = "\n"
-	sp = " "
+const (
+	nl  = "\n"
+	sp  = " "
+	tab = "\t"
 )
 
 const defaultPenalty = 1e5
 
-// Wrap wraps s into a paragraph of lines of length lim, with minimal
+type (
+	Splitter   func(rune) bool
+	WrapOption func(*wrapOptions)
+
+	Wrapper struct {
+	}
+
+	wrapOptions struct {
+		strictWidth bool
+		splitters   []Splitter
+	}
+
+	columns []column
+	cells   []cell
+
+	column struct {
+		i        int
+		maxWidth int
+		cells    cells
+	}
+
+	cell struct {
+		i       int
+		j       int
+		content *string
+		pvalues []int
+		width   int
+		passNo  int
+	}
+)
+
+func (c columns) Less(i, j int) bool {
+	return c[i].maxWidth > c[j].maxWidth
+}
+
+func (c columns) Len() int {
+	return len(c)
+}
+
+func (c columns) Swap(i, j int) {
+	c[i], c[j] = c[j], c[i]
+}
+
+func (c cells) Less(i, j int) bool {
+	return c[i].width > c[j].width
+}
+
+func (c cells) Len() int {
+	return len(c)
+}
+
+func (c cells) Swap(i, j int) {
+	c[i], c[j] = c[j], c[i]
+}
+
+func (c column) SortRows() {
+	sort.Sort(c.cells)
+}
+
+var (
+	BlankSplitter = unicode.IsSpace
+	PunctSplitter = unicode.IsPunct
+	LineSplitter  = func(r rune) bool { return r == '\n' || r == '\r' }
+)
+
+func makeReplacer(separators []rune) *strings.Replacer {
+	return strings.NewReplacer() // TODO
+}
+
+func composeSplitters(splitters []Splitter) Splitter {
+	return func(r rune) bool {
+		for _, fn := range splitters {
+			if fn(r) {
+				return true
+			}
+		}
+
+		return false
+	}
+}
+
+func wrapOptionsWithDefaults(opts []WrapOption) *wrapOptions {
+	options := &wrapOptions{
+		splitters: []Splitter{
+			BlankSplitter,
+			LineSplitter,
+		},
+	}
+
+	for _, apply := range opts {
+		apply(options)
+	}
+
+	return options
+}
+
+// WithWrapWordSplitters defines a wrapper's word boundaries split functions.
+//
+// The default is to break words on IsSpace runes and new-line/carriage return.
+func WithWrapWordSplitters(splitters ...Splitter) WrapOption {
+	return func(o *wrapOptions) {
+		o.splitters = splitters
+	}
+}
+
+func WithWrapStrictMaxWidth(enabled bool) WrapOption {
+	return func(o *wrapOptions) {
+		o.strictWidth = enabled
+	}
+}
+
+// Wrap input string s into a paragraph of lines of length lim, with minimal
 // raggedness.
-func WrapString(s string, lim int) ([]string, int) {
-	words := strings.Split(strings.Replace(s, nl, sp, -1), sp)
+// @deprecated
+func WrapString(s string, lim int, opts ...WrapOption) ([]string, int) {
+	return wrapString(s, lim, opts...)
+}
+
+func wrapString(s string, lim int, opts ...WrapOption) ([]string, int) {
+	options := wrapOptionsWithDefaults(opts)
+
+	// there are 2 levels of splitting:
+	// * irrelevant boundaries such as blank space or new lines
+	// * word boundaries that we want to keep, such as punctuation marks
+	splitter := composeSplitters(options.splitters)
+
+	words := strings.FieldsFunc(s, splitter)
+
 	var lines []string
 	max := 0
 	for _, v := range words {
+		if len(v) == 0 {
+			continue
+		}
+
 		max = runewidth.StringWidth(v)
 		if max > lim {
 			lim = max
 		}
 	}
+
 	for _, line := range WrapWords(words, 1, lim, defaultPenalty) {
 		lines = append(lines, strings.Join(line, sp))
 	}
+
+	if options.strictWidth {
+		// wrap harder -- TODO(fred)
+	}
+
+	if len(lines) == 0 {
+		lines = []string{""}
+	}
+
 	return lines, lim
 }
 
@@ -61,11 +203,13 @@ func WrapWords(words []string, spc, lim, pen int) [][]string {
 			length[i][j] = length[i][j-1] + spc + runewidth.StringWidth(words[j])
 		}
 	}
+
 	nbrk := make([]int, n)
 	cost := make([]int, n)
 	for i := range cost {
 		cost[i] = math.MaxInt32
 	}
+
 	for i := n - 1; i >= 0; i-- {
 		if length[i][n-1] <= lim {
 			cost[i] = 0
@@ -84,12 +228,14 @@ func WrapWords(words []string, spc, lim, pen int) [][]string {
 			}
 		}
 	}
+
 	var lines [][]string
 	i := 0
 	for i < n {
 		lines = append(lines, words[i:nbrk[i]])
 		i = nbrk[i]
 	}
+
 	return lines
 }
 

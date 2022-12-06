@@ -8,25 +8,45 @@
 package tablewriter
 
 import (
-	"math"
 	"regexp"
 	"strings"
 
 	"github.com/mattn/go-runewidth"
 )
 
+type (
+	transformer    func(string) string
+	colPadder      func(string, int, int) string
+	colTransformer func(int) transformer
+)
+
+func identity(in string) string { return in }
+
 var ansi = regexp.MustCompile("\033\\[(?:[0-9]{1,3}(?:;[0-9]{1,3})*)?[m|K]")
 
+// @deprecated
 func DisplayWidth(str string) int {
+	return displayWidth(str)
+}
+
+func displayWidth(str string) int {
 	return runewidth.StringWidth(ansi.ReplaceAllLiteralString(str, ""))
 }
 
-// Simple Condition for string
-// Returns value based on condition
-func ConditionString(cond bool, valid, inValid string) string {
+func stringIf(cond bool, ifTrue, ifFalse string) string {
+	if cond {
+		return ifTrue
+	}
+
+	return ifFalse
+}
+
+// String value based on condition
+func conditionString(cond bool, valid, inValid string) string {
 	if cond {
 		return valid
 	}
+
 	return inValid
 }
 
@@ -36,7 +56,7 @@ func isNumOrSpace(r rune) bool {
 
 // Format Table Header
 // Replace _ , . and spaces
-func Title(name string) string {
+func title(name string) string {
 	origLen := len(name)
 	rs := []rune(name)
 	for i, r := range rs {
@@ -60,34 +80,20 @@ func Title(name string) string {
 	return strings.ToUpper(name)
 }
 
-// Pad String
-// Attempts to place string in the center
-func Pad(s, pad string, width int) string {
-	gap := width - DisplayWidth(s)
-	if gap > 0 {
-		gapLeft := int(math.Ceil(float64(gap / 2)))
-		gapRight := gap - gapLeft
-		return strings.Repeat(string(pad), gapLeft) + s + strings.Repeat(string(pad), gapRight)
+// enforce all cells in the row to have the same number of lines
+func normalizeRowHeight(columns [][]string, height int) [][]string {
+	for i, rowLines := range columns {
+		currentHeight := len(rowLines)
+		pad := height - currentHeight
+
+		for n := 0; n < pad; n++ {
+			columns[i] = append(columns[i], "  ")
+		}
 	}
-	return s
+
+	return columns
 }
 
-// Pad String Right position
-// This would place string at the left side of the screen
-func PadRight(s, pad string, width int) string {
-	gap := width - DisplayWidth(s)
-	if gap > 0 {
-		return s + strings.Repeat(string(pad), gap)
-	}
-	return s
-}
-
-// Pad String Left position
-// This would place string at the right side of the screen
-func PadLeft(s, pad string, width int) string {
-	gap := width - DisplayWidth(s)
-	if gap > 0 {
-		return strings.Repeat(string(pad), gap) + s
-	}
-	return s
+func isNumerical(str string) bool {
+	return decimal.MatchString(strings.TrimSpace(str)) || percent.MatchString(strings.TrimSpace(str))
 }
