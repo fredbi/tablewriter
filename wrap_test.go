@@ -56,3 +56,10 @@ func TestDisplayWidth(t *testing.T) {
 	input = "\033[43;30m" + input + "\033[00m"
 	checkEqual(t, DisplayWidth(input), want)
 }
+
+func TestWrapString(t *testing.T) {
+	want := []string{"ああああああああああああああああああああああああ", "あああああああ"}
+	got, _ := WrapString("ああああああああああああああああああああああああ あああああああ", 55)
+
+	checkEqual(t, got, want)
+}

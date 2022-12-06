@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	// github.com/logrusorgru/aurora
 )
 
 const ESC = "\033"
@@ -79,7 +80,7 @@ func makeSequence(codes []int) string {
 	return strings.Join(codesInString, SEP)
 }
 
-// Adding ANSI escape  sequences before and after string
+// Adding ANSI escape sequences before and after string
 func format(s string, codes interface{}) string {
 	var seq string
 
@@ -98,12 +99,23 @@ func format(s string, codes interface{}) string {
 	if len(seq) == 0 {
 		return s
 	}
+
 	return startFormat(seq) + s + stopFormat()
 }
 
+func WithHeaderColor(colors ...Colors) Option {
+	// TODO: check consistency / apply same color to remaining header
+	return func(o *options) {
+		for i := 0; i < len(colors); i++ {
+			o.headerParams = append(o.headerParams, makeSequence(colors[i]))
+		}
+	}
+}
+
 // Adding header colors (ANSI codes)
+// @deprecated
 func (t *Table) SetHeaderColor(colors ...Colors) {
-	if t.colSize != len(colors) {
+	if t.numColumns != len(colors) {
 		panic("Number of header colors must be equal to number of headers.")
 	}
 	for i := 0; i < len(colors); i++ {
@@ -113,7 +125,7 @@ func (t *Table) SetHeaderColor(colors ...Colors) {
 
 // Adding column colors (ANSI codes)
 func (t *Table) SetColumnColor(colors ...Colors) {
-	if t.colSize != len(colors) {
+	if t.numColumns != len(colors) {
 		panic("Number of column colors must be equal to number of headers.")
 	}
 	for i := 0; i < len(colors); i++ {
