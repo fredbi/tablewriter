@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/logrusorgru/aurora/v4"
 	"github.com/olekukonko/tablewriter"
 )
 
@@ -463,4 +464,34 @@ string with some lines being really long.`
 	// |        A MULTILINE STRING WITH SOME  |
 	// |          LINES BEING REALLY LONG     |
 	// +-----+--------------------------------+
+}
+
+func ExampleFormatter() {
+	data := [][]string{
+		{"A", "The Good", "500"},
+		{"B", "The Very very Bad Man", "288"},
+		{"C", "The Ugly", "120"},
+		{"D", "The Gopher", "800"},
+	}
+
+	table := tablewriter.New(
+		tablewriter.WithHeader([]string{"Name", "Sign", "Rating"}),
+		tablewriter.WithRows(data),
+		tablewriter.WithHeaderFormatters(map[int]tablewriter.Formatter{
+			0: aurora.Red,
+			1: aurora.Blue,
+			2: aurora.Bold,
+		}),
+	)
+
+	table.Render()
+
+	// Output: +------+-----------------------+--------+
+	// | [31mNAME[0m | [34m        SIGN         [0m | [1mRATING[0m |
+	// +------+-----------------------+--------+
+	// | A    | The Good              |    500 |
+	// | B    | The Very very Bad Man |    288 |
+	// | C    | The Ugly              |    120 |
+	// | D    | The Gopher            |    800 |
+	// +------+-----------------------+--------+
 }

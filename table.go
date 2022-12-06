@@ -242,7 +242,7 @@ func (t *Table) isLeftMost(i int) bool {
 	return i == 0 && !t.borders.Left
 }
 
-func (t *Table) isEscSeq(params []string) bool {
+func (t *Table) isEscSeq(params map[int]Formatter) bool {
 	return len(params) > 0
 }
 
@@ -258,7 +258,7 @@ func (t *Table) startOfLinePad() string {
 }
 
 // transformer yields a functor to apply transforms on cell values.
-func (t *Table) transformer(params []string) colTransformer {
+func (t *Table) transformer(params map[int]Formatter) colTransformer {
 	return func(i int) transformer {
 		return func(in string) string {
 			if t.isEscSeq(params) {

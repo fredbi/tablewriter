@@ -39,10 +39,10 @@ type (
 		newLine string
 	}
 
-	colorOptions struct {
-		headerParams  []string
-		columnsParams []string
-		footerParams  []string
+	formatOptions struct {
+		headerParams  map[int]Formatter
+		columnsParams map[int]Formatter
+		footerParams  map[int]Formatter
 	}
 
 	alignOptions struct {
@@ -90,7 +90,7 @@ type (
 		separatorAfterFooter bool
 
 		// formatting
-		colorOptions
+		formatOptions
 
 		// horizontal alignment
 		alignOptions
@@ -111,6 +111,7 @@ func defaultOptions(opts []Option) *options {
 		mW:                   MaxColWidth,
 		separatorOptions:     defaultSeparatorOptions(),
 		alignOptions:         defaultAlignOptions(),
+		formatOptions:        defaultFormatOptions(),
 		separatorAfterHeader: true,
 		separatorAfterFooter: true,
 		borders:              Border{Left: true, Right: true, Bottom: true, Top: true},
@@ -139,6 +140,14 @@ func defaultAlignOptions() alignOptions {
 		footerAlign:    AlignDefault,
 		cellAlign:      AlignDefault,
 		perColumnAlign: make(map[int]HAlignment),
+	}
+}
+
+func defaultFormatOptions() formatOptions {
+	return formatOptions{
+		headerParams:  make(map[int]Formatter),
+		columnsParams: make(map[int]Formatter),
+		footerParams:  make(map[int]Formatter),
 	}
 }
 
