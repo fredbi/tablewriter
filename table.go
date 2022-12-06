@@ -593,7 +593,7 @@ func (t Table) getTableWidth() int {
 	col := wrap.DisplayWidth(t.pColumn)
 	padding := wrap.DisplayWidth(t.tablePadding)
 
-	//if t.borders.Left {
+	// if t.borders.Left {
 	chars += col
 	chars += padding
 	//}
@@ -604,7 +604,7 @@ func (t Table) getTableWidth() int {
 		chars += col
 	}
 
-	//if t.borders.Right {
+	// if t.borders.Right {
 	chars += wrap.DisplayWidth(t.tablePadding)
 	chars += col
 	//}

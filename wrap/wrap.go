@@ -17,12 +17,13 @@ import (
 )
 
 const (
-	nl  = "\n"
-	sp  = " "
-	tab = "\t"
+	nl             = "\n"
+	sp             = " "
+	tab            = "\t"
+	defaultPenalty = 1e5
 )
 
-const defaultPenalty = 1e5
+var ansi = regexp.MustCompile("\033\\[(?:[0-9]{1,3}(?:;[0-9]{1,3})*)?[m|K]")
 
 type (
 	DefaultWrapper struct {
@@ -36,17 +37,14 @@ func New(opts ...Option) *DefaultWrapper {
 	}
 }
 
-// Wrap input string s into a paragraph of lines of length lim, with minimal
-// raggedness.
-// @deprecated
-func (w *DefaultWrapper) WrapString(s string, lim int) []string {
+// Wrap input string s into a paragraph of lines of limited length, with minimal raggedness.
+func (w *DefaultWrapper) WrapString(s string, limit int) []string {
 	options := w.wrapOptions
 
 	// there are 2 levels of splitting:
 	// * irrelevant boundaries such as blank space or new lines
 	// * word boundaries that we want to keep, such as punctuation marks
 	splitter := composeSplitters(options.splitters)
-
 	words := strings.FieldsFunc(s, splitter)
 
 	var lines []string
@@ -57,12 +55,12 @@ func (w *DefaultWrapper) WrapString(s string, lim int) []string {
 		}
 
 		max = runewidth.StringWidth(v)
-		if max > lim {
-			lim = max
+		if max > limit {
+			limit = max
 		}
 	}
 
-	for _, line := range wrapWords(words, 1, lim, defaultPenalty) {
+	for _, line := range wrapWords(words, 1, limit, defaultPenalty) {
 		lines = append(lines, strings.Join(line, sp))
 	}
 
@@ -71,6 +69,7 @@ func (w *DefaultWrapper) WrapString(s string, lim int) []string {
 	}
 
 	if len(lines) == 0 {
+		// always ensure at least one line
 		lines = []string{""}
 	}
 
@@ -88,7 +87,7 @@ func (w *DefaultWrapper) WrapString(s string, lim int) []string {
 // difference of the length of the line and lim. Too-long lines (which only
 // happen when a single word is longer than lim units) have pen penalty units
 // added to the error.
-func wrapWords(words []string, spc, lim, pen int) [][]string {
+func wrapWords(words []string, spc, limit, penalty int) [][]string {
 	n := len(words)
 
 	length := make([][]int, n)
@@ -107,15 +106,15 @@ func wrapWords(words []string, spc, lim, pen int) [][]string {
 	}
 
 	for i := n - 1; i >= 0; i-- {
-		if length[i][n-1] <= lim {
+		if length[i][n-1] <= limit {
 			cost[i] = 0
 			nbrk[i] = n
 		} else {
 			for j := i + 1; j < n; j++ {
-				d := lim - length[i][j-1]
+				d := limit - length[i][j-1]
 				c := d*d + cost[j]
-				if length[i][j-1] > lim {
-					c += pen // too-long lines get a worse penalty
+				if length[i][j-1] > limit {
+					c += penalty // too-long lines get a worse penalty
 				}
 				if c < cost[i] {
 					cost[i] = c
@@ -135,12 +134,12 @@ func wrapWords(words []string, spc, lim, pen int) [][]string {
 	return lines
 }
 
-// @deprecated
+// DisplayWidth yields the size of a string when rendered on a terminal.
+//
+// ANSI escape sequences are discared.
 func DisplayWidth(str string) int {
 	return displayWidth(str)
 }
-
-var ansi = regexp.MustCompile("\033\\[(?:[0-9]{1,3}(?:;[0-9]{1,3})*)?[m|K]")
 
 func displayWidth(str string) int {
 	return runewidth.StringWidth(ansi.ReplaceAllLiteralString(str, ""))
