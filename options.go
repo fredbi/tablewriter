@@ -3,6 +3,8 @@ package tablewriter
 import (
 	"io"
 	"os"
+
+	"github.com/fredbi/tablewriter/wrap"
 )
 
 const (
@@ -46,6 +48,12 @@ type (
 		perColumnAlign map[int]HAlignment
 	}
 
+	wrapOptions struct {
+		autoWrap       bool
+		wrapper        Wrapper
+		wrapperOptions []wrap.Option
+	}
+
 	options struct {
 		rows        [][]string // input rows
 		header      []string
@@ -68,10 +76,9 @@ type (
 		// borders
 		borders Border
 
+		wrapOptions
+
 		// cell formatting
-		// tRow           int
-		// tColumn int
-		autoWrap       bool
 		reflowText     bool
 		mW             int
 		autoMergeCells bool
@@ -100,9 +107,9 @@ func defaultOptions(opts []Option) *options {
 		rs:                   make(map[int]int),
 		captionText:          "",
 		autoFmt:              true,
-		autoWrap:             true,
 		reflowText:           true,
 		mW:                   MaxColWidth,
+		wrapOptions:          defaultWrapOptions(),
 		separatorOptions:     defaultSeparatorOptions(),
 		alignOptions:         defaultAlignOptions(),
 		formatOptions:        defaultFormatOptions(),
@@ -117,6 +124,12 @@ func defaultOptions(opts []Option) *options {
 	}
 
 	return o
+}
+
+func defaultWrapOptions() wrapOptions {
+	return wrapOptions{
+		autoWrap: true,
+	}
 }
 
 func defaultSeparatorOptions() separatorOptions {
@@ -169,7 +182,9 @@ func WithFooter(footer []string) Option {
 	}
 }
 
-// WithTitledHeader autoformats headers with Title-case.
+// WithTitledHeader autoformats headers and footer as titles.
+//
+// The title string is trimmed, uppercased. Underscores are replaced by blank spaces.
 func WithTitledHeader(enabled bool) Option {
 	return func(o *options) {
 		o.autoFmt = enabled
@@ -188,11 +203,19 @@ func WithCaption(caption string) Option {
 //
 // Wrapping is enabled by default (the default maximum column width is 30 characters).
 //
-// Some WrapOptions may be passed to further tune the behavior of the wrapper.
-func WithWrap(enabled bool, opts ...WrapOption) Option {
+// The default wrapper is used. Some WrapOptions may be passed to further tune the behavior of the wrapper.
+func WithWrap(enabled bool, opts ...wrap.Option) Option {
 	// TODO(fred): wrap options
 	return func(o *options) {
 		o.autoWrap = enabled
+		o.wrapperOptions = opts
+	}
+}
+
+// WithWrapper allows to plug-in a customized Wrapper.
+func WithWrapper(wrapper Wrapper) Option {
+	return func(o *options) {
+		o.wrapper = wrapper
 	}
 }
 

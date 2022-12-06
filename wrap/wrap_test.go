@@ -5,13 +5,14 @@
 // This module is a Table Writer  API for the Go Programming Language.
 // The protocols were written in pure Go and works on windows and unix systems
 
-package tablewriter
+package wrap
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/mattn/go-runewidth"
+	"github.com/stretchr/testify/require"
 )
 
 var text = "The quick brown fox jumps over the lazy dog."
@@ -21,27 +22,30 @@ func TestWrap(t *testing.T) {
 		"The", "quick", "brown", "fox",
 		"jumps", "over", "the", "lazy", "dog."}
 
-	got, _ := WrapString(text, 6)
-	checkEqual(t, len(got), len(exp))
+	w := New()
+	got := w.WrapString(text, 6)
+	require.EqualValues(t, len(exp), len(got))
 }
 
 func TestWrapOneLine(t *testing.T) {
 	exp := "The quick brown fox jumps over the lazy dog."
-	words, _ := WrapString(text, 500)
-	checkEqual(t, strings.Join(words, string(sp)), exp)
+	w := New()
+	words := w.WrapString(text, 500)
+	require.EqualValues(t, exp, strings.Join(words, string(sp)))
 
 }
 
 func TestUnicode(t *testing.T) {
 	input := "Česká řeřicha"
+	w := New()
 	var wordsUnicode []string
 	if runewidth.IsEastAsian() {
-		wordsUnicode, _ = WrapString(input, 14)
+		wordsUnicode = w.WrapString(input, 14)
 	} else {
-		wordsUnicode, _ = WrapString(input, 13)
+		wordsUnicode = w.WrapString(input, 13)
 	}
 	// input contains 13 (or 14 for CJK) runes, so it fits on one line.
-	checkEqual(t, len(wordsUnicode), 1)
+	require.Len(t, wordsUnicode, 1)
 }
 
 func TestDisplayWidth(t *testing.T) {
@@ -50,16 +54,17 @@ func TestDisplayWidth(t *testing.T) {
 	if runewidth.IsEastAsian() {
 		want = 14
 	}
-	if n := DisplayWidth(input); n != want {
+	if n := displayWidth(input); n != want {
 		t.Errorf("Wants: %d Got: %d", want, n)
 	}
 	input = "\033[43;30m" + input + "\033[00m"
-	checkEqual(t, DisplayWidth(input), want)
+	require.EqualValues(t, want, DisplayWidth(input))
 }
 
 func TestWrapString(t *testing.T) {
 	want := []string{"ああああああああああああああああああああああああ", "あああああああ"}
-	got, _ := WrapString("ああああああああああああああああああああああああ あああああああ", 55)
+	w := New()
+	got := w.WrapString("ああああああああああああああああああああああああ あああああああ", 55)
 
-	checkEqual(t, got, want)
+	require.EqualValues(t, want, got)
 }

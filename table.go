@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/fredbi/tablewriter/wrap"
 )
 
 const (
@@ -103,6 +105,12 @@ func (t *Table) Render() {
 func (t *Table) prepare() {
 	t.setNumColumns()
 	t.fillAlignments()
+
+	if t.autoWrap {
+		if t.wrapper == nil {
+			t.wrapper = wrap.New(t.wrapperOptions...)
+		}
+	}
 
 	for i, v := range t.header {
 		lines := t.parseDimension(v, i, headerRowIdx)
@@ -279,7 +287,7 @@ func (t *Table) transformer(params map[int]Formatter) colTransformer {
 			}
 
 			if t.isRightMost(i) {
-				in = strings.TrimRightFunc(in, BlankSplitter)
+				in = strings.TrimRightFunc(in, wrap.BlankSplitter)
 			}
 
 			return in
@@ -463,7 +471,7 @@ func (t *Table) printFooter() {
 	colRightPad := func(in string, i, j int) string {
 		if j == 0 {
 			// right padding on first line of footer
-			if len(strings.TrimRightFunc(in, BlankSplitter)) == 0 {
+			if len(strings.TrimRightFunc(in, wrap.BlankSplitter)) == 0 {
 				erasePad[i] = true
 
 				return stringIf(t.isRightMost(i), NOPADDING, SPACE)
@@ -568,7 +576,7 @@ func (t *Table) printFooterSeparator() {
 // Print caption text
 func (t Table) printCaption() {
 	width := t.getTableWidth()
-	paragraph, _ := WrapString(t.captionText, width) // TODO: use Wrapper
+	paragraph := t.wrapper.WrapString(t.captionText, width)
 
 	for linecount := 0; linecount < len(paragraph); linecount++ {
 		fmt.Fprintln(t.out, format(paragraph[linecount], t.captionParams))
@@ -582,8 +590,8 @@ func (t Table) printCaption() {
 func (t Table) getTableWidth() int {
 	var chars int
 
-	col := displayWidth(t.pColumn)
-	padding := displayWidth(t.tablePadding)
+	col := wrap.DisplayWidth(t.pColumn)
+	padding := wrap.DisplayWidth(t.tablePadding)
 
 	//if t.borders.Left {
 	chars += col
@@ -597,7 +605,7 @@ func (t Table) getTableWidth() int {
 	}
 
 	//if t.borders.Right {
-	chars += displayWidth(t.tablePadding)
+	chars += wrap.DisplayWidth(t.tablePadding)
 	chars += col
 	//}
 
@@ -629,7 +637,7 @@ func (t *Table) printRow(columns [][]string, rowIdx int) {
 	colLeftPad := func(in string, i, _ int) string {
 		if t.isRightMost(i) {
 			if !t.noWhiteSpace {
-				if len(strings.TrimRightFunc(in, BlankSplitter)) > 0 {
+				if len(strings.TrimRightFunc(in, wrap.BlankSplitter)) > 0 {
 					return stringIf(t.isLeftMost(i), SPACE, t.pColumn) + SPACE
 				}
 				return stringIf(t.isLeftMost(i), SPACE, t.pColumn)
@@ -791,7 +799,7 @@ func (t *Table) parseDimension(str string, colKey, rowKey int) []string {
 	raw = getLines(str)
 	maxWidth = 0
 	for _, line := range raw {
-		if w := DisplayWidth(line); w > maxWidth {
+		if w := wrap.DisplayWidth(line); w > maxWidth {
 			maxWidth = w
 		}
 	}
@@ -821,9 +829,9 @@ func (t *Table) parseDimension(str string, colKey, rowKey int) []string {
 		}
 
 		for i, para := range raw {
-			paraLines, _ := wrapString(para, maxWidth)
+			paraLines := t.wrapper.WrapString(para, maxWidth)
 			for _, line := range paraLines {
-				if w := displayWidth(line); w > newMaxWidth {
+				if w := wrap.DisplayWidth(line); w > newMaxWidth {
 					newMaxWidth = w
 				}
 			}

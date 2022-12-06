@@ -6,13 +6,12 @@
 // The protocols were written in pure Go and works on windows and unix systems
 
 //nolint:unused,unparam,staticcheck
-package tablewriter
+package wrap
 
 import (
 	"math"
-	"sort"
+	"regexp"
 	"strings"
-	"unicode"
 
 	"github.com/mattn/go-runewidth"
 )
@@ -26,125 +25,22 @@ const (
 const defaultPenalty = 1e5
 
 type (
-	Splitter   func(rune) bool
-	WrapOption func(*wrapOptions)
-
-	Wrapper struct {
-	}
-
-	wrapOptions struct {
-		strictWidth bool
-		splitters   []Splitter
-	}
-
-	columns []column
-	cells   []cell
-
-	column struct {
-		i        int
-		maxWidth int
-		cells    cells
-	}
-
-	cell struct {
-		i       int
-		j       int
-		content *string
-		pvalues []int
-		width   int
-		passNo  int
+	DefaultWrapper struct {
+		*wrapOptions
 	}
 )
 
-func (c columns) Less(i, j int) bool {
-	return c[i].maxWidth > c[j].maxWidth
-}
-
-func (c columns) Len() int {
-	return len(c)
-}
-
-func (c columns) Swap(i, j int) {
-	c[i], c[j] = c[j], c[i]
-}
-
-func (c cells) Less(i, j int) bool {
-	return c[i].width > c[j].width
-}
-
-func (c cells) Len() int {
-	return len(c)
-}
-
-func (c cells) Swap(i, j int) {
-	c[i], c[j] = c[j], c[i]
-}
-
-func (c column) SortRows() {
-	sort.Sort(c.cells)
-}
-
-var (
-	BlankSplitter = unicode.IsSpace
-	PunctSplitter = unicode.IsPunct
-	LineSplitter  = func(r rune) bool { return r == '\n' || r == '\r' }
-)
-
-func makeReplacer(separators []rune) *strings.Replacer {
-	return strings.NewReplacer() // TODO
-}
-
-func composeSplitters(splitters []Splitter) Splitter {
-	return func(r rune) bool {
-		for _, fn := range splitters {
-			if fn(r) {
-				return true
-			}
-		}
-
-		return false
-	}
-}
-
-func wrapOptionsWithDefaults(opts []WrapOption) *wrapOptions {
-	options := &wrapOptions{
-		splitters: []Splitter{
-			BlankSplitter,
-			LineSplitter,
-		},
-	}
-
-	for _, apply := range opts {
-		apply(options)
-	}
-
-	return options
-}
-
-// WithWrapWordSplitters defines a wrapper's word boundaries split functions.
-//
-// The default is to break words on IsSpace runes and new-line/carriage return.
-func WithWrapWordSplitters(splitters ...Splitter) WrapOption {
-	return func(o *wrapOptions) {
-		o.splitters = splitters
-	}
-}
-
-func WithWrapStrictMaxWidth(enabled bool) WrapOption {
-	return func(o *wrapOptions) {
-		o.strictWidth = enabled
+func New(opts ...Option) *DefaultWrapper {
+	return &DefaultWrapper{
+		wrapOptions: optionsWithDefaults(opts),
 	}
 }
 
 // Wrap input string s into a paragraph of lines of length lim, with minimal
 // raggedness.
 // @deprecated
-func WrapString(s string, lim int, opts ...WrapOption) ([]string, int) {
-	return wrapString(s, lim, opts...)
-}
-
-func wrapString(s string, lim int, opts ...WrapOption) ([]string, int) {
-	options := wrapOptionsWithDefaults(opts)
+func (w *DefaultWrapper) WrapString(s string, lim int) []string {
+	options := w.wrapOptions
 
 	// there are 2 levels of splitting:
 	// * irrelevant boundaries such as blank space or new lines
@@ -166,7 +62,7 @@ func wrapString(s string, lim int, opts ...WrapOption) ([]string, int) {
 		}
 	}
 
-	for _, line := range WrapWords(words, 1, lim, defaultPenalty) {
+	for _, line := range wrapWords(words, 1, lim, defaultPenalty) {
 		lines = append(lines, strings.Join(line, sp))
 	}
 
@@ -178,10 +74,10 @@ func wrapString(s string, lim int, opts ...WrapOption) ([]string, int) {
 		lines = []string{""}
 	}
 
-	return lines, lim
+	return lines
 }
 
-// WrapWords is the low-level line-breaking algorithm, useful if you need more
+// wrapWords is the low-level line-breaking algorithm, useful if you need more
 // control over the details of the text wrapping process. For most uses,
 // WrapString will be sufficient and more convenient.
 //
@@ -192,7 +88,7 @@ func wrapString(s string, lim int, opts ...WrapOption) ([]string, int) {
 // difference of the length of the line and lim. Too-long lines (which only
 // happen when a single word is longer than lim units) have pen penalty units
 // added to the error.
-func WrapWords(words []string, spc, lim, pen int) [][]string {
+func wrapWords(words []string, spc, lim, pen int) [][]string {
 	n := len(words)
 
 	length := make([][]int, n)
@@ -239,7 +135,13 @@ func WrapWords(words []string, spc, lim, pen int) [][]string {
 	return lines
 }
 
-// getLines decomposes a multiline string into a slice of strings.
-func getLines(s string) []string {
-	return strings.Split(s, nl)
+// @deprecated
+func DisplayWidth(str string) int {
+	return displayWidth(str)
+}
+
+var ansi = regexp.MustCompile("\033\\[(?:[0-9]{1,3}(?:;[0-9]{1,3})*)?[m|K]")
+
+func displayWidth(str string) int {
+	return runewidth.StringWidth(ansi.ReplaceAllLiteralString(str, ""))
 }

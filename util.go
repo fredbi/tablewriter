@@ -8,10 +8,7 @@
 package tablewriter
 
 import (
-	"regexp"
 	"strings"
-
-	"github.com/mattn/go-runewidth"
 )
 
 type (
@@ -21,17 +18,6 @@ type (
 )
 
 func identity(in string) string { return in }
-
-var ansi = regexp.MustCompile("\033\\[(?:[0-9]{1,3}(?:;[0-9]{1,3})*)?[m|K]")
-
-// @deprecated
-func DisplayWidth(str string) int {
-	return displayWidth(str)
-}
-
-func displayWidth(str string) int {
-	return runewidth.StringWidth(ansi.ReplaceAllLiteralString(str, ""))
-}
 
 func stringIf(cond bool, ifTrue, ifFalse string) string {
 	if cond {
@@ -77,6 +63,7 @@ func title(name string) string {
 		// empty lines in multi-line headers/footers.
 		name = " "
 	}
+
 	return strings.ToUpper(name)
 }
 
@@ -84,12 +71,17 @@ func title(name string) string {
 func normalizeRowHeight(columns [][]string, height int) [][]string {
 	for i, rowLines := range columns {
 		currentHeight := len(rowLines)
-		pad := height - currentHeight
+		padHeight := height - currentHeight
 
-		for n := 0; n < pad; n++ {
-			columns[i] = append(columns[i], "  ")
+		for n := 0; n < padHeight; n++ {
+			columns[i] = append(columns[i], "")
 		}
 	}
 
 	return columns
+}
+
+// getLines decomposes a multiline string into a slice of strings.
+func getLines(s string) []string {
+	return strings.Split(s, NEWLINE) // TODO: what if CRLF
 }

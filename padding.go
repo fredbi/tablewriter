@@ -3,6 +3,8 @@ package tablewriter
 import (
 	"regexp"
 	"strings"
+
+	"github.com/fredbi/tablewriter/wrap"
 )
 
 type (
@@ -52,7 +54,7 @@ func padDefault(s, pad string, width int) string {
 
 // padCenter centers a string
 func padCenter(s, pad string, width int) string {
-	gap := width - displayWidth(s)
+	gap := width - wrap.DisplayWidth(s)
 	if gap <= 0 {
 		return s
 	}
@@ -64,7 +66,7 @@ func padCenter(s, pad string, width int) string {
 }
 
 func padRight(s, pad string, width int) string {
-	gap := width - displayWidth(s)
+	gap := width - wrap.DisplayWidth(s)
 	if gap <= 0 {
 		return s
 	}
@@ -73,7 +75,7 @@ func padRight(s, pad string, width int) string {
 }
 
 func padLeft(s, pad string, width int) string {
-	gap := width - displayWidth(s)
+	gap := width - wrap.DisplayWidth(s)
 	if gap <= 0 {
 		return s
 	}
