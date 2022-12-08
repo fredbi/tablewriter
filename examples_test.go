@@ -182,7 +182,7 @@ func ExampleNewCSV() {
 }
 
 func ExampleWithWrap() {
-	var multiline = `A multiline
+	const multiline = `A multiline
 string with some lines being really long.`
 
 	type testMode uint8
@@ -195,26 +195,26 @@ string with some lines being really long.`
 	)
 
 	for mode := testRow; mode <= testFooter2; mode++ {
-		for _, autoFmt := range []bool{false, true} {
-			if mode == testRow && autoFmt {
+		for _, titled := range []bool{false, true} {
+			if mode == testRow && titled {
 				// Nothing special to test, skip
 				continue
 			}
 
-			for _, autoWrap := range []bool{false, true} {
+			for _, wrapped := range []bool{false, true} {
 				for _, reflow := range []bool{false, true} {
-					if !autoWrap && reflow {
-						// Invalid configuration, skip
+					if !wrapped && reflow {
+						// invalid configuration, skip
 						continue
 					}
 
-					fmt.Println("mode", mode, "autoFmt", autoFmt, "autoWrap", autoWrap, "reflow", reflow)
+					fmt.Println("mode:", mode, "titled:", titled, "wrapped:", wrapped, "reflow:", reflow)
 
 					options := []tablewriter.Option{
 						tablewriter.WithWriter(os.Stdout),
-						tablewriter.WithTitledHeader(autoFmt),
-						tablewriter.WithWrap(autoWrap),
-						tablewriter.WithWrapReflow(reflow), // TODO: wrap option
+						tablewriter.WithTitledHeader(titled),
+						tablewriter.WithWrap(wrapped),
+						tablewriter.WithWrapReflow(reflow),
 					}
 
 					switch mode {
@@ -245,7 +245,7 @@ string with some lines being really long.`
 	}
 
 	// Output:
-	// mode 0 autoFmt false autoWrap false reflow false
+	// mode: 0 titled: false wrapped: false reflow: false
 	// +-----+-------------------------------------------+
 	// | woo |                    waa                    |
 	// +-----+-------------------------------------------+
@@ -255,7 +255,7 @@ string with some lines being really long.`
 	// | woo |                    waa                    |
 	// +-----+-------------------------------------------+
 	//
-	// mode 0 autoFmt false autoWrap true reflow false
+	// mode: 0 titled: false wrapped: true reflow: false
 	// +-----+--------------------------------+
 	// | woo |              waa               |
 	// +-----+--------------------------------+
@@ -267,7 +267,7 @@ string with some lines being really long.`
 	// | woo |              waa               |
 	// +-----+--------------------------------+
 	//
-	// mode 0 autoFmt false autoWrap true reflow true
+	// mode: 0 titled: false wrapped: true reflow: true
 	// +-----+--------------------------------+
 	// | woo |              waa               |
 	// +-----+--------------------------------+
@@ -277,7 +277,7 @@ string with some lines being really long.`
 	// | woo |              waa               |
 	// +-----+--------------------------------+
 	//
-	// mode 1 autoFmt false autoWrap false reflow false
+	// mode: 1 titled: false wrapped: false reflow: false
 	// +-----+-------------------------------------------+
 	// | woo |                A multiline                |
 	// |     | string with some lines being really long. |
@@ -287,7 +287,7 @@ string with some lines being really long.`
 	// | woo |                    waa                    |
 	// +-----+-------------------------------------------+
 	//
-	// mode 1 autoFmt false autoWrap true reflow false
+	// mode: 1 titled: false wrapped: true reflow: false
 	// +-----+--------------------------------+
 	// | woo |          A multiline           |
 	// |     |                                |
@@ -299,7 +299,7 @@ string with some lines being really long.`
 	// | woo |              waa               |
 	// +-----+--------------------------------+
 	//
-	// mode 1 autoFmt false autoWrap true reflow true
+	// mode: 1 titled: false wrapped: true reflow: true
 	// +-----+--------------------------------+
 	// | woo |  A multiline string with some  |
 	// |     |    lines being really long.    |
@@ -309,7 +309,7 @@ string with some lines being really long.`
 	// | woo |              waa               |
 	// +-----+--------------------------------+
 	//
-	// mode 1 autoFmt true autoWrap false reflow false
+	// mode: 1 titled: true wrapped: false reflow: false
 	// +-----+-------------------------------------------+
 	// | WOO |                A MULTILINE                |
 	// |     | STRING WITH SOME LINES BEING REALLY LONG  |
@@ -319,7 +319,7 @@ string with some lines being really long.`
 	// | WOO |                    WAA                    |
 	// +-----+-------------------------------------------+
 	//
-	// mode 1 autoFmt true autoWrap true reflow false
+	// mode: 1 titled: true wrapped: true reflow: false
 	// +-----+--------------------------------+
 	// | WOO |          A MULTILINE           |
 	// |     |                                |
@@ -331,7 +331,7 @@ string with some lines being really long.`
 	// | WOO |              WAA               |
 	// +-----+--------------------------------+
 	//
-	// mode 1 autoFmt true autoWrap true reflow true
+	// mode: 1 titled: true wrapped: true reflow: true
 	// +-----+--------------------------------+
 	// | WOO |  A MULTILINE STRING WITH SOME  |
 	// |     |    LINES BEING REALLY LONG     |
@@ -341,7 +341,7 @@ string with some lines being really long.`
 	// | WOO |              WAA               |
 	// +-----+--------------------------------+
 	//
-	// mode 2 autoFmt false autoWrap false reflow false
+	// mode: 2 titled: false wrapped: false reflow: false
 	// +-----+-------------------------------------------+
 	// | woo |                    waa                    |
 	// +-----+-------------------------------------------+
@@ -351,7 +351,7 @@ string with some lines being really long.`
 	// |     | string with some lines being really long. |
 	// +-----+-------------------------------------------+
 	//
-	// mode 2 autoFmt false autoWrap true reflow false
+	// mode: 2 titled: false wrapped: true reflow: false
 	// +-----+--------------------------------+
 	// | woo |              waa               |
 	// +-----+--------------------------------+
@@ -363,7 +363,7 @@ string with some lines being really long.`
 	// |     |          really long.          |
 	// +-----+--------------------------------+
 	//
-	// mode 2 autoFmt false autoWrap true reflow true
+	// mode: 2 titled: false wrapped: true reflow: true
 	// +-----+--------------------------------+
 	// | woo |              waa               |
 	// +-----+--------------------------------+
@@ -373,7 +373,7 @@ string with some lines being really long.`
 	// |     |    lines being really long.    |
 	// +-----+--------------------------------+
 	//
-	// mode 2 autoFmt true autoWrap false reflow false
+	// mode: 2 titled: true wrapped: false reflow: false
 	// +-----+-------------------------------------------+
 	// | WOO |                    WAA                    |
 	// +-----+-------------------------------------------+
@@ -383,7 +383,7 @@ string with some lines being really long.`
 	// |     | STRING WITH SOME LINES BEING REALLY LONG  |
 	// +-----+-------------------------------------------+
 	//
-	// mode 2 autoFmt true autoWrap true reflow false
+	// mode: 2 titled: true wrapped: true reflow: false
 	// +-----+--------------------------------+
 	// | WOO |              WAA               |
 	// +-----+--------------------------------+
@@ -395,7 +395,7 @@ string with some lines being really long.`
 	// |     |          REALLY LONG           |
 	// +-----+--------------------------------+
 	//
-	// mode 2 autoFmt true autoWrap true reflow true
+	// mode: 2 titled: true wrapped: true reflow: true
 	// +-----+--------------------------------+
 	// | WOO |              WAA               |
 	// +-----+--------------------------------+
@@ -405,7 +405,7 @@ string with some lines being really long.`
 	// |     |    LINES BEING REALLY LONG     |
 	// +-----+--------------------------------+
 	//
-	// mode 3 autoFmt false autoWrap false reflow false
+	// mode: 3 titled: false wrapped: false reflow: false
 	// +-----+-------------------------------------------+
 	// | woo |                    waa                    |
 	// +-----+-------------------------------------------+
@@ -415,7 +415,7 @@ string with some lines being really long.`
 	// |       string with some lines being really long. |
 	// +-----+-------------------------------------------+
 	//
-	// mode 3 autoFmt false autoWrap true reflow false
+	// mode: 3 titled: false wrapped: true reflow: false
 	// +-----+--------------------------------+
 	// | woo |              waa               |
 	// +-----+--------------------------------+
@@ -427,7 +427,7 @@ string with some lines being really long.`
 	// |                really long.          |
 	// +-----+--------------------------------+
 	//
-	// mode 3 autoFmt false autoWrap true reflow true
+	// mode: 3 titled: false wrapped: true reflow: true
 	// +-----+--------------------------------+
 	// | woo |              waa               |
 	// +-----+--------------------------------+
@@ -437,7 +437,7 @@ string with some lines being really long.`
 	// |          lines being really long.    |
 	// +-----+--------------------------------+
 	//
-	// mode 3 autoFmt true autoWrap false reflow false
+	// mode: 3 titled: true wrapped: false reflow: false
 	// +-----+-------------------------------------------+
 	// | WOO |                    WAA                    |
 	// +-----+-------------------------------------------+
@@ -447,7 +447,7 @@ string with some lines being really long.`
 	// |       STRING WITH SOME LINES BEING REALLY LONG  |
 	// +-----+-------------------------------------------+
 	//
-	// mode 3 autoFmt true autoWrap true reflow false
+	// mode: 3 titled: true wrapped: true reflow: false
 	// +-----+--------------------------------+
 	// | WOO |              WAA               |
 	// +-----+--------------------------------+
@@ -459,7 +459,7 @@ string with some lines being really long.`
 	// |                REALLY LONG           |
 	// +-----+--------------------------------+
 	//
-	// mode 3 autoFmt true autoWrap true reflow true
+	// mode: 3 titled: true wrapped: true reflow: true
 	// +-----+--------------------------------+
 	// | WOO |              WAA               |
 	// +-----+--------------------------------+

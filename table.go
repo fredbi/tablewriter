@@ -32,15 +32,17 @@ type Table struct {
 	numColumns              int
 	columnsToAutoMergeCells map[int]bool
 	columnsAlign            []HAlignment
+	rowMaxHeight            map[int]int // max lines per cell
 }
 
 // New builds a new empty table writer.
 func New(opts ...Option) *Table {
 	t := &Table{
-		lines:      [][][]string{},
-		headers:    [][]string{},
-		footers:    [][]string{},
-		numColumns: -1,
+		lines:        [][][]string{},
+		headers:      [][]string{},
+		footers:      [][]string{},
+		numColumns:   -1,
+		rowMaxHeight: make(map[int]int),
 
 		options: defaultOptions(opts),
 	}
@@ -105,12 +107,7 @@ func (t *Table) Render() {
 func (t *Table) prepare() {
 	t.setNumColumns()
 	t.fillAlignments()
-
-	if t.autoWrap {
-		if t.wrapper == nil {
-			t.wrapper = wrap.New(t.wrapperOptions...)
-		}
-	}
+	t.fillMaxWidths()
 
 	for i, v := range t.header {
 		lines := t.parseDimension(v, i, headerRowIdx)
@@ -145,50 +142,65 @@ func (t *Table) fillAlignments() {
 	}
 }
 
+func (t *Table) fillMaxWidths() {
+	for i := 0; i < t.numColumns; i++ {
+		_, isDefined := t.colMaxWidth[i]
+		if !isDefined {
+			t.colMaxWidth[i] = t.maxColWidth
+		}
+	}
+}
+
 // setNumColumns determines the number of columns for this table, aligned to the row
 // (or header, or footer) with the largest number of columns.
 func (t *Table) setNumColumns() {
-	t.numColumns = len(t.header)
+	nCols := len(t.header)
 
 	for _, row := range t.rows {
-		if cols := len(row); cols > t.numColumns {
-			t.numColumns = cols
+		if cols := len(row); cols > nCols {
+			nCols = cols
 		}
 	}
 
-	if cols := len(t.footer); cols > t.numColumns {
-		t.numColumns = cols
+	if cols := len(t.footer); cols > nCols {
+		nCols = cols
 	}
 
 	// normalize all content to the same number of columns, adding trailing empty columns
 	if len(t.header) > 0 {
-		if missing := t.numColumns - len(t.header); missing > 0 {
+		if missing := nCols - len(t.header); missing > 0 {
 			padded := make([]string, missing)
 			t.header = append(t.header, padded...)
 		}
 	}
 
 	for i, row := range t.rows {
-		if missing := t.numColumns - len(row); missing > 0 {
+		if missing := nCols - len(row); missing > 0 {
 			padded := make([]string, missing)
 			t.rows[i] = append(t.rows[i], padded...)
 		}
 	}
 
 	if len(t.footer) > 0 {
-		if missing := t.numColumns - len(t.footer); missing > 0 {
+		if missing := nCols - len(t.footer); missing > 0 {
 			padded := make([]string, missing)
 			t.footer = append(t.footer, padded...)
 		}
 	}
+
+	t.numColumns = nCols
+}
+
+func (t *Table) lastCol() int {
+	return t.numColumns - 1
 }
 
 // center determines the character to print at an intersection line, based on the position and border.
 func (t *Table) center(i int) string {
 	switch {
-	case i == -1 && !t.borders.Left:
+	case i == -1 && !t.borders.Left: // ICI - strange: for isLeftMost we have i == 0 && !t.borders.Left
 		fallthrough // -
-	case i == len(t.cs)-1 && !t.borders.Right:
+	case t.isRightMost(i):
 		return t.pRow // -
 	default:
 		return t.pCenter // +
@@ -196,11 +208,13 @@ func (t *Table) center(i int) string {
 }
 
 // PrintSepLine prints a separation line based on the row width.
+//
+// BUG(fred): this doesn't work well with noWhiteSpace
 func (t *Table) printSepLine(withNewLine bool) {
 	fmt.Fprint(t.out, t.center(-1)) // -
 
-	for i := 0; i < len(t.cs); i++ {
-		colWidth := t.cs[i]
+	for i := 0; i < t.numColumns; i++ {
+		colWidth := t.colWidth[i]
 		fmt.Fprintf(t.out, "%s%s%s%s",
 			t.pRow,                           // -
 			strings.Repeat(t.pRow, colWidth), // -...-
@@ -221,8 +235,9 @@ func (t *Table) printSepLine(withNewLine bool) {
 func (t *Table) printLineOptionalCellSeparators(withNewLine bool, displayCellSeparator []bool) {
 	fmt.Fprint(t.out, t.pCenter) // ?? + never -???
 
-	for i := 0; i < len(t.cs); i++ {
-		colWidth := t.cs[i]
+	for i := 0; i < t.numColumns; i++ {
+		colWidth := t.colWidth[i]
+
 		if i > len(displayCellSeparator) || displayCellSeparator[i] {
 			// display the cell separator
 			fmt.Fprintf(t.out, "%s%s%s%s",
@@ -234,7 +249,7 @@ func (t *Table) printLineOptionalCellSeparators(withNewLine bool, displayCellSep
 		} else {
 			// don't display the cell separator for this cell
 			fmt.Fprintf(t.out, "%s%s",
-				strings.Repeat(" ", colWidth+2),
+				strings.Repeat(SPACE, colWidth+2),
 				t.pCenter)
 		}
 	}
@@ -247,23 +262,22 @@ func (t *Table) printLineOptionalCellSeparators(withNewLine bool, displayCellSep
 // headerPrepadder yields a transform applied to header and footer cells,
 // before padding.
 func (t *Table) headerPrepadder() transformer {
-	if t.autoFmt {
-		return title
+	if t.titler != nil {
+		return t.titler
 	}
 
 	return identity
 }
 
 func (t *Table) isRightMost(i int) bool {
-	end := len(t.cs) - 1
-	return i == end && !t.borders.Right
+	return i == t.lastCol() && !t.borders.Right
 }
 
 func (t *Table) isLeftMost(i int) bool {
 	return i == 0 && !t.borders.Left
 }
 
-func (t *Table) isEscSeq(params map[int]Formatter) bool {
+func (t *Table) hasEscSeq(params map[int]Formatter) bool {
 	return len(params) > 0
 }
 
@@ -282,11 +296,13 @@ func (t *Table) startOfLinePad() string {
 func (t *Table) transformer(params map[int]Formatter) colTransformer {
 	return func(i int) transformer {
 		return func(in string) string {
-			if t.isEscSeq(params) {
+			if t.hasEscSeq(params) {
+				// apply formatting escape sequence, if any
 				in = format(in, params[i])
 			}
 
 			if t.isRightMost(i) {
+				// remove extraneous trailing blanks on rows without a right border
 				in = strings.TrimRightFunc(in, wrap.BlankSplitter)
 			}
 
@@ -295,14 +311,13 @@ func (t *Table) transformer(params map[int]Formatter) colTransformer {
 	}
 }
 
-// Print heading information
 func (t *Table) printHeader() {
 	if len(t.headers) == 0 {
 		return
 	}
 
 	padder := t.headerAlign.padder()
-	maxHeight := t.rs[headerRowIdx]
+	maxHeight := t.rowMaxHeight[headerRowIdx]
 	headerLines := normalizeRowHeight(t.headers, maxHeight)
 
 	colLeftPad := func(in string, i, _ int) string {
@@ -316,106 +331,49 @@ func (t *Table) printHeader() {
 
 		return NOPADDING
 	}
-	/*
-		footer version: should we take into account noWhiteSpace??
-		colLeftPad := func(in string, i, _ int) string {
-			if len(in) == 0 && t.isRightMost(i) {
-				return NOPADDING
-			}
-			return SPACE
-		}
-	*/
 
 	colRightPad := func(_ string, i, _ int) string {
 		if t.isRightMost(i) {
 			return NOPADDING
 		}
 
+		var middlePad string
+		if t.hasEscSeq(t.headerParams) || !t.noWhiteSpace { // why when escape seq???
+			middlePad = SPACE
+		}
+
 		if !t.noWhiteSpace {
-			return stringIf(
+			return middlePad + stringIf(
 				t.isRightMost(i),
 				SPACE, t.pColumn,
 			)
 		}
 
-		return stringIf(
+		return middlePad + stringIf(
 			t.isRightMost(i),
 			SPACE, t.tablePadding,
 		)
 	}
-	/* footer version
-	colRightPad := func(in string, i, j int) string {
-		if j == 0 {
-			// right padding on first line of footer
-			if len(in) == 0 {
-				erasePad[i] = true
-
-				return stringIf(t.isRightMost(i), NOPADDING, SPACE)
-			}
-
-			return stringIf(t.isRightMost(i), NOPADDING, t.pColumn)
-		}
-
-		if erasePad[i] {
-			return stringIf(t.isRightMost(i), NOPADDING, SPACE)
-		}
-
-		return stringIf(t.isRightMost(i), NOPADDING, t.pColumn)
-	}
-	*/
-
-	colMiddlePad := func(_ string, i, _ int) string {
-		if t.isRightMost(i) {
-			return NOPADDING
-		}
-
-		if t.isEscSeq(t.headerParams) || !t.noWhiteSpace {
-			return SPACE
-		}
-
-		return NOPADDING
-	}
-	/* footer version: why do have a space on header with ansi escape seq???
-	colMiddlePad := func(_ string, i, _ int) string {
-		if t.isRightMost(i) {
-			return NOPADDING
-		}
-
-		return SPACE
-	}
-	*/
 
 	prepadding := t.headerPrepadder()
 	transform := t.transformer(t.headerParams)
 
-	for line := 0; line < maxHeight; line++ {
-		fmt.Fprint(t.out, t.startOfLinePad())
-
-		for col := 0; col < len(t.cs); col++ {
-			value := headerLines[col][line]
-			fmt.Fprint(t.out, colLeftPad(value, col, line))
-			fmt.Fprint(t.out, transform(col)(
-				padder(
-					prepadding(value),
-					SPACE, t.cs[col],
-				),
-			),
-			)
-			fmt.Fprint(t.out, colMiddlePad(value, col, line)) // TODO: simplify this (may be mergd with RightPad)
-			fmt.Fprint(t.out, colRightPad(value, col, line))
-		}
-
-		fmt.Fprint(t.out, t.newLine)
-	}
+	t.renderRowWithPadding(
+		headerLines,
+		maxHeight,
+		padder,
+		colLeftPad, colRightPad,
+		prepadding,
+		transform,
+	)
 
 	if t.separatorAfterHeader {
 		t.printSepLine(true)
 	}
 }
 
-/* factorize with this?
-func (t *Table) renderRow(
-	lines [][]string,
+func (t *Table) renderRowWithPadding(
+	cells [][]string,
 	maxHeight int,
 	cellPadder padFunc,
 	leftPadder, rightPadder colPadder,
@@ -425,29 +383,31 @@ func (t *Table) renderRow(
 	for line := 0; line < maxHeight; line++ {
 		fmt.Fprint(t.out, t.startOfLinePad())
 
-		for col := 0; col <= len(t.cs); col++ {
-			colWidth := t.cs[col]
-			value := lines[col][line]
+		for col := 0; col < t.numColumns; col++ {
+			colWidth := t.colWidth[col]
+			value := cells[col][line]
 
 			fmt.Fprint(t.out, leftPadder(value, col, line))
-			fmt.Fprint(t.out, transform(col)(cellPadder(prepadder(value), SPACE, colWidth)))
+			fmt.Fprint(t.out, transform(col)(
+				cellPadder(
+					prepadder(value),
+					SPACE, colWidth,
+				),
+			))
 			fmt.Fprint(t.out, rightPadder(value, col, line))
 		}
 
 		fmt.Fprint(t.out, t.newLine)
 	}
 }
-*/
 
-// Print column footer
 func (t *Table) printFooter() {
 	if len(t.footers) == 0 {
 		return
 	}
 
-	end := len(t.cs) - 1
 	padder := t.footerAlign.padder()
-	maxHeight := t.rs[footerRowIdx]
+	maxHeight := t.rowMaxHeight[footerRowIdx]
 	footerLines := normalizeRowHeight(t.footers, maxHeight)
 
 	if !t.borders.Bottom {
@@ -460,13 +420,7 @@ func (t *Table) printFooter() {
 		}
 		return SPACE
 	}
-	colMiddlePad := func(_ string, i, _ int) string {
-		if t.isRightMost(i) {
-			return NOPADDING
-		}
 
-		return SPACE
-	}
 	erasePad := make([]bool, len(t.footers))
 	colRightPad := func(in string, i, j int) string {
 		if j == 0 {
@@ -474,37 +428,30 @@ func (t *Table) printFooter() {
 			if len(strings.TrimRightFunc(in, wrap.BlankSplitter)) == 0 {
 				erasePad[i] = true
 
-				return stringIf(t.isRightMost(i), NOPADDING, SPACE)
+				return stringIf(t.isRightMost(i), NOPADDING, SPACE+SPACE)
 			}
 
-			return stringIf(t.isRightMost(i), NOPADDING, t.pColumn)
+			return stringIf(t.isRightMost(i), NOPADDING, SPACE+t.pColumn)
 		}
 
 		if erasePad[i] {
-			return stringIf(t.isRightMost(i), NOPADDING, SPACE)
+			return stringIf(t.isRightMost(i), NOPADDING, SPACE+SPACE)
 		}
 
-		return stringIf(t.isRightMost(i), NOPADDING, t.pColumn)
+		return stringIf(t.isRightMost(i), NOPADDING, SPACE+t.pColumn)
 	}
 
 	prepadding := t.headerPrepadder()
 	transform := t.transformer(t.footerParams)
 
-	for line := 0; line < maxHeight; line++ {
-		fmt.Fprint(t.out, t.startOfLinePad())
-
-		for col := 0; col <= end; col++ {
-			colWidth := t.cs[col]
-			value := footerLines[col][line]
-
-			fmt.Fprint(t.out, colLeftPad(value, col, line))
-			fmt.Fprint(t.out, transform(col)(padder(prepadding(value), SPACE, colWidth)))
-			fmt.Fprint(t.out, colMiddlePad(value, col, line))
-			fmt.Fprint(t.out, colRightPad(value, col, line))
-		}
-
-		fmt.Fprint(t.out, t.newLine)
-	}
+	t.renderRowWithPadding(
+		footerLines,
+		maxHeight,
+		padder,
+		colLeftPad, colRightPad,
+		prepadding,
+		transform,
+	)
 
 	if t.separatorAfterFooter {
 		t.printFooterSeparator()
@@ -513,11 +460,10 @@ func (t *Table) printFooter() {
 
 // print special separator line below the footer
 func (t *Table) printFooterSeparator() {
-	end := len(t.cs) - 1
 	hasPrinted := false
 
-	for col := 0; col <= end; col++ {
-		colWidth := t.cs[col]
+	for col := 0; col < t.numColumns; col++ {
+		colWidth := t.colWidth[col]
 		pad := t.pRow
 		center := t.pCenter
 		length := len(t.footers[col][0])
@@ -547,13 +493,13 @@ func (t *Table) printFooterSeparator() {
 		}
 
 		if center != SPACE {
-			if col == end && !t.borders.Right {
+			if col == t.lastCol() && !t.borders.Right {
 				center = t.pRow
 			}
 		}
 
 		if center == SPACE {
-			if col < end && len(t.footers[col+1][0]) != 0 {
+			if col < t.lastCol() && len(t.footers[col+1][0]) != 0 {
 				if !t.borders.Left {
 					center = t.pRow
 				} else {
@@ -562,12 +508,10 @@ func (t *Table) printFooterSeparator() {
 			}
 		}
 
-		fmt.Fprintf(t.out, "%s%s%s%s",
-			pad,
-			strings.Repeat(pad, colWidth),
-			pad,
-			center)
-
+		fmt.Fprint(t.out, pad)
+		fmt.Fprint(t.out, strings.Repeat(pad, colWidth))
+		fmt.Fprint(t.out, pad)
+		fmt.Fprint(t.out, center)
 	}
 
 	fmt.Fprint(t.out, t.newLine)
@@ -598,7 +542,7 @@ func (t Table) getTableWidth() int {
 	chars += padding
 	//}
 
-	for _, width := range t.cs {
+	for _, width := range t.colWidth {
 		chars += width
 		chars += padding
 		chars += col
@@ -629,7 +573,7 @@ func (t *Table) cellAligner(col int) padFunc {
 //
 // Adjust column alignment based on type
 func (t *Table) printRow(columns [][]string, rowIdx int) {
-	maxHeight := t.rs[rowIdx]
+	maxHeight := t.rowMaxHeight[rowIdx]
 	numColumns := len(columns)
 	columns = normalizeRowHeight(columns, maxHeight)
 
@@ -658,8 +602,7 @@ func (t *Table) printRow(columns [][]string, rowIdx int) {
 			return NOPADDING
 		}
 
-		end := len(t.cs) - 1
-		if !t.noWhiteSpace && t.borders.Right && i == end {
+		if !t.noWhiteSpace && t.borders.Right && i == t.lastCol() {
 			return SPACE + stringIf(t.borders.Right, t.pColumn, SPACE)
 		}
 
@@ -668,8 +611,8 @@ func (t *Table) printRow(columns [][]string, rowIdx int) {
 
 	for line := 0; line < maxHeight; line++ {
 		for col := 0; col < numColumns; col++ {
-			padder := t.cellAligner(col)
-			colWidth := t.cs[col]
+			padder := t.cellAligner(col) // each column may use a different alignment
+			colWidth := t.colWidth[col]
 			value := columns[col][line]
 
 			fmt.Fprint(t.out, colLeftPad(value, col, line))
@@ -712,8 +655,7 @@ func (t *Table) printRowsMergeCells() {
 // Print Row Information to a writer and merge identical cells.
 // Adjust column alignment based on type
 func (t *Table) printRowMergeCells(writer io.Writer, columns [][]string, rowIdx int, previousLine []string) ([]string, []bool) {
-	// Get Maximum Height
-	max := t.rs[rowIdx]
+	max := t.rowMaxHeight[rowIdx]
 	numColumns := len(columns)
 	columns = normalizeRowHeight(columns, max)
 
@@ -728,7 +670,7 @@ func (t *Table) printRowMergeCells(writer io.Writer, columns [][]string, rowIdx 
 			str := columns[y][x]
 
 			// Embedding escape sequence with column value
-			if t.isEscSeq(t.columnsParams) {
+			if t.hasEscSeq(t.columnsParams) {
 				str = format(str, t.columnsParams[y])
 			}
 
@@ -760,16 +702,16 @@ func (t *Table) printRowMergeCells(writer io.Writer, columns [][]string, rowIdx 
 			// Default alignment  would use multiple configuration
 			switch t.columnsAlign[y] {
 			case AlignCenter: //
-				fmt.Fprintf(writer, "%s", padCenter(str, SPACE, t.cs[y]))
+				fmt.Fprintf(writer, "%s", padCenter(str, SPACE, t.colWidth[y]))
 			case AlignRight:
-				fmt.Fprintf(writer, "%s", padLeft(str, SPACE, t.cs[y]))
+				fmt.Fprintf(writer, "%s", padLeft(str, SPACE, t.colWidth[y]))
 			case AlignLeft:
-				fmt.Fprintf(writer, "%s", padRight(str, SPACE, t.cs[y]))
+				fmt.Fprintf(writer, "%s", padRight(str, SPACE, t.colWidth[y]))
 			default:
 				if isNumerical(str) {
-					fmt.Fprintf(writer, "%s", padLeft(str, SPACE, t.cs[y]))
+					fmt.Fprintf(writer, "%s", padLeft(str, SPACE, t.colWidth[y]))
 				} else {
-					fmt.Fprintf(writer, "%s", padRight(str, SPACE, t.cs[y]))
+					fmt.Fprintf(writer, "%s", padRight(str, SPACE, t.colWidth[y]))
 				}
 			}
 			fmt.Fprint(writer, SPACE)
@@ -806,11 +748,8 @@ func (t *Table) parseDimension(str string, colKey, rowKey int) []string {
 
 	// If wrapping, ensure that all paragraphs in the cell fit in the
 	// specified width.
-	if t.autoWrap {
-		maxAllowedWidth, isDefined := t.ms[colKey]
-		if !isDefined {
-			maxAllowedWidth = t.mW
-		}
+	if t.wrapper != nil {
+		maxAllowedWidth := t.colMaxWidth[colKey] // TODO in prepare
 
 		// If there's a maximum allowed width for wrapping, use that.
 		if maxWidth > maxAllowedWidth {
@@ -845,17 +784,17 @@ func (t *Table) parseDimension(str string, colKey, rowKey int) []string {
 	}
 
 	// Store the new known maximum width.
-	v, ok := t.cs[colKey]
+	v, ok := t.colWidth[colKey]
 	if !ok || v < maxWidth || v == 0 {
-		t.cs[colKey] = maxWidth
+		t.colWidth[colKey] = maxWidth
 	}
 
 	// Remember the number of lines for the row printer.
 	h := len(raw)
-	v, ok = t.rs[rowKey]
+	v, ok = t.rowMaxHeight[rowKey]
 
 	if !ok || v < h || v == 0 {
-		t.rs[rowKey] = h
+		t.rowMaxHeight[rowKey] = h
 	}
 
 	return raw

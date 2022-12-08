@@ -31,6 +31,7 @@ type (
 	}
 )
 
+// New builds a new default wrapper.
 func New(opts ...Option) *DefaultWrapper {
 	return &DefaultWrapper{
 		wrapOptions: optionsWithDefaults(opts),

@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/fredbi/tablewriter/titlers"
 	"github.com/fredbi/tablewriter/wrap"
 )
 
@@ -49,9 +50,7 @@ type (
 	}
 
 	wrapOptions struct {
-		autoWrap       bool
-		wrapper        Wrapper
-		wrapperOptions []wrap.Option
+		wrapper Wrapper
 	}
 
 	options struct {
@@ -64,12 +63,12 @@ type (
 		out io.Writer
 
 		// width & height
-		cs map[int]int // min width for a column
-		ms map[int]int // max width for a column
-		rs map[int]int // max lines per cell
+		colWidth    map[int]int // min width for a column
+		colMaxWidth map[int]int // max width for a column
+		maxColWidth int
 
 		// header title-case
-		autoFmt bool
+		titler transformer
 
 		separatorOptions
 
@@ -80,7 +79,6 @@ type (
 
 		// cell formatting
 		reflowText     bool
-		mW             int
 		autoMergeCells bool
 		noWhiteSpace   bool
 		tablePadding   string
@@ -102,13 +100,11 @@ func defaultOptions(opts []Option) *options {
 	o := &options{
 		out:                  os.Stdout,
 		rows:                 [][]string{},
-		cs:                   make(map[int]int),
-		ms:                   make(map[int]int),
-		rs:                   make(map[int]int),
+		colWidth:             make(map[int]int),
+		colMaxWidth:          make(map[int]int),
 		captionText:          "",
-		autoFmt:              true,
 		reflowText:           true,
-		mW:                   MaxColWidth,
+		maxColWidth:          MaxColWidth,
 		wrapOptions:          defaultWrapOptions(),
 		separatorOptions:     defaultSeparatorOptions(),
 		alignOptions:         defaultAlignOptions(),
@@ -117,6 +113,7 @@ func defaultOptions(opts []Option) *options {
 		separatorAfterFooter: true,
 		borders:              Border{Left: true, Right: true, Bottom: true, Top: true},
 		tablePadding:         SPACE,
+		titler:               titlers.DefaultTitler,
 	}
 
 	for _, apply := range opts {
@@ -128,7 +125,7 @@ func defaultOptions(opts []Option) *options {
 
 func defaultWrapOptions() wrapOptions {
 	return wrapOptions{
-		autoWrap: true,
+		wrapper: wrap.New(),
 	}
 }
 
@@ -184,10 +181,21 @@ func WithFooter(footer []string) Option {
 
 // WithTitledHeader autoformats headers and footer as titles.
 //
-// The title string is trimmed, uppercased. Underscores are replaced by blank spaces.
+// By default, the title string is trimmed, uppercased. Underscores are replaced by blank spaces.
 func WithTitledHeader(enabled bool) Option {
 	return func(o *options) {
-		o.autoFmt = enabled
+		if enabled {
+			o.titler = titlers.DefaultTitler
+		} else {
+			o.titler = nil
+		}
+	}
+}
+
+// WithCustomTitler injects a transform function to apply to header and footer values.
+func WithCustomTitler(titler func(string) string) Option {
+	return func(o *options) {
+		o.titler = titler
 	}
 }
 
@@ -203,16 +211,19 @@ func WithCaption(caption string) Option {
 //
 // Wrapping is enabled by default (the default maximum column width is 30 characters).
 //
-// The default wrapper is used. Some WrapOptions may be passed to further tune the behavior of the wrapper.
-func WithWrap(enabled bool, opts ...wrap.Option) Option {
-	// TODO(fred): wrap options
+// Whenever enabled, the default wrapper is used. The default wrapper wraps cells into
+// multiline content, based on their column maximum width, wrapping only on word boundaries.
+func WithWrap(enabled bool) Option {
 	return func(o *options) {
-		o.autoWrap = enabled
-		o.wrapperOptions = opts
+		if enabled {
+			o.wrapper = wrap.New()
+		} else {
+			o.wrapper = nil
+		}
 	}
 }
 
-// WithWrapper allows to plug-in a customized Wrapper.
+// WithWrapper allows to plug-in a customized cell content Wrapper.
 func WithWrapper(wrapper Wrapper) Option {
 	return func(o *options) {
 		o.wrapper = wrapper
@@ -338,7 +349,7 @@ func WithColumnSeparator(sep string) Option {
 // The default is 30.
 func WithColWidth(width int) Option {
 	return func(o *options) {
-		o.mW = width
+		o.maxColWidth = width
 	}
 }
 
@@ -347,7 +358,7 @@ func WithColWidth(width int) Option {
 // This overrides the setting defined by WithColWidth.
 func WithColMaxWidth(column int, width int) Option {
 	return func(o *options) {
-		o.ms[column] = width
+		o.colMaxWidth[column] = width
 	}
 }
 
@@ -355,7 +366,7 @@ func WithColMaxWidth(column int, width int) Option {
 func WithColMaxWidths(maxWidths map[int]int) Option {
 	return func(o *options) {
 		for k, v := range maxWidths {
-			o.ms[k] = v
+			o.colMaxWidth[k] = v
 		}
 	}
 }
@@ -398,7 +409,7 @@ func WithMergeCells(enabled bool) Option {
 // WithColMinWidth specifies the minimum width of columns. TODO: testing. Does this work?
 func WithColMinWidth(column int, width int) Option {
 	return func(o *options) {
-		o.cs[column] = width
+		o.colWidth[column] = width
 	}
 }
 
