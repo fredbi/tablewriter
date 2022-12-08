@@ -1,29 +1,19 @@
-// Copyright 2014 Oleku Konko All rights reserved.
-// Use of this source code is governed by a MIT
-// license that can be found in the LICENSE file.
-
-// This module is a Table Writer  API for the Go Programming Language.
-// The protocols were written in pure Go and works on windows and unix systems
-
 //nolint:unused,unparam,staticcheck
 package wrap
 
 import (
 	"math"
-	"regexp"
 	"strings"
 
 	"github.com/mattn/go-runewidth"
 )
 
 const (
-	nl             = "\n"
-	sp             = " "
-	tab            = "\t"
+	//nl = "\n"
+	space = " "
+	// tab            = "\t"
 	defaultPenalty = 1e5
 )
-
-var ansi = regexp.MustCompile("\033\\[(?:[0-9]{1,3}(?:;[0-9]{1,3})*)?[m|K]")
 
 type (
 	DefaultWrapper struct {
@@ -32,7 +22,7 @@ type (
 )
 
 // New builds a new default wrapper.
-func New(opts ...Option) *DefaultWrapper {
+func NewDefault(opts ...Option) *DefaultWrapper {
 	return &DefaultWrapper{
 		wrapOptions: optionsWithDefaults(opts),
 	}
@@ -62,7 +52,7 @@ func (w *DefaultWrapper) WrapString(s string, limit int) []string {
 	}
 
 	for _, line := range wrapWords(words, 1, limit, defaultPenalty) {
-		lines = append(lines, strings.Join(line, sp))
+		lines = append(lines, strings.Join(line, space))
 	}
 
 	if options.strictWidth {
@@ -133,15 +123,4 @@ func wrapWords(words []string, spc, limit, penalty int) [][]string {
 	}
 
 	return lines
-}
-
-// DisplayWidth yields the size of a string when rendered on a terminal.
-//
-// ANSI escape sequences are discared.
-func DisplayWidth(str string) int {
-	return displayWidth(str)
-}
-
-func displayWidth(str string) int {
-	return runewidth.StringWidth(ansi.ReplaceAllLiteralString(str, ""))
 }

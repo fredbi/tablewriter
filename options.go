@@ -125,7 +125,7 @@ func defaultOptions(opts []Option) *options {
 
 func defaultWrapOptions() wrapOptions {
 	return wrapOptions{
-		wrapper: wrap.New(),
+		wrapper: wrap.NewDefault(),
 	}
 }
 
@@ -218,7 +218,7 @@ func WithCaption(caption string) Option {
 func WithWrap(enabled bool) Option {
 	return func(o *options) {
 		if enabled {
-			o.wrapper = wrap.New()
+			o.wrapper = wrap.NewDefault()
 		} else {
 			o.wrapper = nil
 		}

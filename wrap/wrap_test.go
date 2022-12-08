@@ -1,70 +1,94 @@
-// Copyright 2014 Oleku Konko All rights reserved.
-// Use of this source code is governed by a MIT
-// license that can be found in the LICENSE file.
-
-// This module is a Table Writer  API for the Go Programming Language.
-// The protocols were written in pure Go and works on windows and unix systems
-
 package wrap
 
 import (
-	"strings"
+	"fmt"
 	"testing"
 
 	"github.com/mattn/go-runewidth"
 	"github.com/stretchr/testify/require"
 )
 
-var text = "The quick brown fox jumps over the lazy dog."
+func TestDefaultWrapper(t *testing.T) {
+	t.Parallel()
 
-func TestWrap(t *testing.T) {
-	exp := []string{
-		"The", "quick", "brown", "fox",
-		"jumps", "over", "the", "lazy", "dog."}
+	const text = "The quick brown fox jumps over the lazy dog."
 
-	w := New()
-	got := w.WrapString(text, 6)
-	require.EqualValues(t, len(exp), len(got))
-}
+	t.Run(fmt.Sprintf("should wrap text in lines"), func(t *testing.T) {
+		t.Parallel()
 
-func TestWrapOneLine(t *testing.T) {
-	exp := "The quick brown fox jumps over the lazy dog."
-	w := New()
-	words := w.WrapString(text, 500)
-	require.EqualValues(t, exp, strings.Join(words, string(sp)))
+		const maxWidth = 6
 
-}
+		expected := []string{
+			"The", "quick", "brown", "fox",
+			"jumps", "over", "the", "lazy", "dog."}
 
-func TestUnicode(t *testing.T) {
-	input := "Česká řeřicha"
-	w := New()
-	var wordsUnicode []string
-	if runewidth.IsEastAsian() {
-		wordsUnicode = w.WrapString(input, 14)
-	} else {
-		wordsUnicode = w.WrapString(input, 13)
-	}
-	// input contains 13 (or 14 for CJK) runes, so it fits on one line.
-	require.Len(t, wordsUnicode, 1)
-}
+		w := NewDefault()
+		got := w.WrapString(text, maxWidth)
+		require.Len(t, got, len(expected))
+	})
 
-func TestDisplayWidth(t *testing.T) {
-	input := "Česká řeřicha"
-	want := 13
-	if runewidth.IsEastAsian() {
-		want = 14
-	}
-	if n := displayWidth(input); n != want {
-		t.Errorf("Wants: %d Got: %d", want, n)
-	}
-	input = "\033[43;30m" + input + "\033[00m"
-	require.EqualValues(t, want, DisplayWidth(input))
-}
+	t.Run("should wrap into a single line", func(t *testing.T) {
+		t.Parallel()
 
-func TestWrapString(t *testing.T) {
-	want := []string{"ああああああああああああああああああああああああ", "あああああああ"}
-	w := New()
-	got := w.WrapString("ああああああああああああああああああああああああ あああああああ", 55)
+		const maxWidth = 500
 
-	require.EqualValues(t, want, got)
+		expected := "The quick brown fox jumps over the lazy dog."
+
+		w := NewDefault()
+		actual := w.WrapString(text, 500)
+		require.Len(t, actual, 1)
+		require.EqualValues(t, []string{expected}, actual)
+	})
+
+	t.Run("should wrap unicode according to the displayed width, not the number of runes", func(t *testing.T) {
+		t.Parallel()
+
+		w := NewDefault()
+		for _, toPin := range []struct {
+			Input         string
+			MaxWidth      int
+			ExpectedLines int
+		}{
+			{
+				Input:         "Česká řeřicha",
+				MaxWidth:      13,
+				ExpectedLines: 1,
+			},
+			{
+				Input:         "〒177-0034 日本, 東京都練馬区富士見台1丁目9番2号",
+				MaxWidth:      13,
+				ExpectedLines: 2,
+			},
+		} {
+			testCase := toPin
+
+			// TODO(fred): apparently there is a catch with CJK locale.
+			// See runewidth package to understand better.
+			t.Run(fmt.Sprintf("%q should fit in %d lines of width %d - CJK locale:%t",
+				testCase.Input, testCase.ExpectedLines, testCase.MaxWidth, runewidth.IsEastAsian(),
+			), func(t *testing.T) {
+				t.Parallel()
+
+				actual := w.WrapString(testCase.Input, testCase.MaxWidth)
+				require.Len(t, actual, testCase.ExpectedLines)
+			})
+		}
+	})
+
+	t.Run("should wrap string into paragraphs", func(t *testing.T) {
+		t.Parallel()
+
+		expected := []string{
+			"ああああああああああああああああああああああああ",
+			"あああああああ",
+		}
+
+		w := NewDefault()
+		actual := w.WrapString(
+			"ああああああああああああああああああああああああ あああああああ",
+			55,
+		)
+
+		require.EqualValues(t, expected, actual)
+	})
 }
