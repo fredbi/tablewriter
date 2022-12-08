@@ -110,20 +110,20 @@ func (t *Table) prepare() {
 	t.fillMaxWidths()
 
 	for i, v := range t.header {
-		lines := t.parseDimension(v, i, headerRowIdx)
+		lines := t.parseCell(v, i, headerRowIdx)
 		t.headers = append(t.headers, lines)
 	}
 
 	for i, cells := range t.rows {
 		var rowLines [][]string
 		for j, v := range cells {
-			rowLines = append(rowLines, t.parseDimension(v, j, i))
+			rowLines = append(rowLines, t.parseCell(v, j, i))
 		}
 		t.lines = append(t.lines, rowLines)
 	}
 
 	for i, v := range t.footer {
-		lines := t.parseDimension(v, i, footerRowIdx)
+		lines := t.parseCell(v, i, footerRowIdx)
 		t.footers = append(t.footers, lines)
 	}
 }
@@ -743,70 +743,75 @@ func (t *Table) printRowMergeCells(writer io.Writer, columns [][]string, rowIdx 
 	return previousLine, displayCellBorder
 }
 
-func (t *Table) parseDimension(str string, colKey, rowKey int) []string {
-	var (
-		raw      []string
-		maxWidth int
-	)
-
-	raw = getLines(str)
-	maxWidth = 0
-	for _, line := range raw {
+// cellWidth determines the displayed width of a multi-lines cell.
+func cellWidth(lines []string) int {
+	maxWidth := 0
+	for _, line := range lines {
 		if w := wrap.DisplayWidth(line); w > maxWidth {
 			maxWidth = w
 		}
 	}
 
-	// If wrapping, ensure that all paragraphs in the cell fit in the
-	// specified width.
+	return maxWidth
+}
+
+// parseCell analyzes cell[col,row] of the table and computes its width and height.
+// If wrapping is enabled, the content of the cell is wrapped.
+//
+// Works also for header and footer with special row indices.
+func (t *Table) parseCell(str string, col, row int) []string {
+	paragraphs := strings.FieldsFunc(str, wrap.LineSplitter)
+	maxWidth := cellWidth(paragraphs)
+
 	if t.wrapper != nil {
-		maxAllowedWidth := t.colMaxWidth[colKey] // TODO in prepare
-
-		// If there's a maximum allowed width for wrapping, use that.
-		if maxWidth > maxAllowedWidth {
-			maxWidth = maxAllowedWidth
-		}
-
-		// In the process of doing so, we need to recompute maxWidth. This
-		// is because perhaps a word in the cell is longer than the
-		// allowed maximum width in maxAllowedWidth.
-		newMaxWidth := maxWidth
-		newRaw := make([]string, 0, len(raw))
-
-		if t.reflowText {
-			// Make a single paragraph of everything.
-			raw = []string{strings.Join(raw, " ")}
-		}
-
-		for i, para := range raw {
-			paraLines := t.wrapper.WrapString(para, maxWidth)
-			for _, line := range paraLines {
-				if w := wrap.DisplayWidth(line); w > newMaxWidth {
-					newMaxWidth = w
-				}
-			}
-			if i > 0 {
-				newRaw = append(newRaw, SPACE)
-			}
-			newRaw = append(newRaw, paraLines...)
-		}
-		raw = newRaw
-		maxWidth = newMaxWidth
+		// cell wrapping: ensure that all paragraphs in the cell fit in the specified width.
+		// If there is a maximum allowed width for this column, use that value.
+		maxWidth = min(t.colMaxWidth[col], maxWidth)
+		maxWidth, paragraphs = t.wrapParagraphs(maxWidth, paragraphs)
 	}
 
-	// Store the new known maximum width.
-	v, ok := t.colWidth[colKey]
-	if !ok || v < maxWidth || v == 0 {
-		t.colWidth[colKey] = maxWidth
+	t.setColWidth(col, maxWidth)
+	t.setRowHeight(row, len(paragraphs))
+
+	return paragraphs
+}
+
+// wrapParagraphs wraps the text inside a multi-lines cell and returns the new width and set of lines.
+func (t *Table) wrapParagraphs(maxWidth int, paragraphs []string) (int, []string) {
+	if t.reflowText {
+		// make a single paragraph of everything.
+		paragraphs = []string{strings.Join(paragraphs, SPACE)}
 	}
 
-	// Remember the number of lines for the row printer.
-	h := len(raw)
-	v, ok = t.rowMaxHeight[rowKey]
+	newMaxWidth := maxWidth
+	wrappedParagraphs := make([]string, 0, len(paragraphs))
 
-	if !ok || v < h || v == 0 {
-		t.rowMaxHeight[rowKey] = h
+	for i, paragraph := range paragraphs {
+		wrappedParagraph := t.wrapper.WrapString(paragraph, maxWidth)
+		newMaxWidth = max(cellWidth(wrappedParagraph), maxWidth)
+
+		if i > 0 && !t.reflowText {
+			// separate paragraphs with an empty line (there is no point if reflow is enabled)
+			wrappedParagraphs = append(wrappedParagraphs, SPACE)
+		}
+
+		wrappedParagraphs = append(wrappedParagraphs, wrappedParagraph...)
 	}
 
-	return raw
+	return newMaxWidth, wrappedParagraphs
+}
+
+func (t *Table) setColWidth(col, width int) {
+	previous := t.colWidth[col]
+	if previous == 0 || previous < width {
+		t.colWidth[col] = width
+	}
+}
+
+func (t *Table) setRowHeight(row, height int) {
+	previous := t.rowMaxHeight[row]
+
+	if previous == 0 || previous < height {
+		t.rowMaxHeight[row] = height
+	}
 }

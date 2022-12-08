@@ -386,6 +386,11 @@ func WithMarkdown(enabled bool) Option {
 	}
 }
 
+// WithWrapReflow reflow multi-line paragraphs into a single paragraph.
+//
+// This is the default. Inactive is wrapping is disabled.
+//
+// Whenever disabled, cells are wrapped into paragraphs that are separated by an empty line.
 func WithWrapReflow(enabled bool) Option {
 	return func(o *options) {
 		o.reflowText = enabled

@@ -7,10 +7,6 @@
 
 package tablewriter
 
-import (
-	"strings"
-)
-
 type (
 	transformer    func(string) string
 	colPadder      func(string, int, int) string
@@ -50,7 +46,18 @@ func normalizeRowHeight(columns [][]string, height int) [][]string {
 	return columns
 }
 
-// getLines decomposes a multiline string into a slice of strings.
-func getLines(s string) []string {
-	return strings.Split(s, NEWLINE) // TODO: what if CRLF
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+
+	return b
 }
