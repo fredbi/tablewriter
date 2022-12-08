@@ -263,7 +263,7 @@ func (t *Table) printLineOptionalCellSeparators(withNewLine bool, displayCellSep
 // before padding.
 func (t *Table) headerPrepadder() transformer {
 	if t.titler != nil {
-		return t.titler
+		return t.titler.Title
 	}
 
 	return identity

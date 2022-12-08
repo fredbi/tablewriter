@@ -68,7 +68,7 @@ type (
 		maxColWidth int
 
 		// header title-case
-		titler transformer
+		titler Titler
 
 		separatorOptions
 
@@ -113,7 +113,7 @@ func defaultOptions(opts []Option) *options {
 		separatorAfterFooter: true,
 		borders:              Border{Left: true, Right: true, Bottom: true, Top: true},
 		tablePadding:         SPACE,
-		titler:               titlers.DefaultTitler,
+		titler:               titlers.NewDefault(),
 	}
 
 	for _, apply := range opts {
@@ -180,20 +180,22 @@ func WithFooter(footer []string) Option {
 }
 
 // WithTitledHeader autoformats headers and footer as titles.
+// This is enabled by default.
 //
-// By default, the title string is trimmed, uppercased. Underscores are replaced by blank spaces.
+// Whenever enabled, the default titler is being used.
+// The title string is trimmed, uppercased. Underscores are replaced by blank spaces.
 func WithTitledHeader(enabled bool) Option {
 	return func(o *options) {
 		if enabled {
-			o.titler = titlers.DefaultTitler
+			o.titler = titlers.NewDefault()
 		} else {
 			o.titler = nil
 		}
 	}
 }
 
-// WithCustomTitler injects a transform function to apply to header and footer values.
-func WithCustomTitler(titler func(string) string) Option {
+// WithTitler injects a Titler to apply to header and footer values.
+func WithTitler(titler Titler) Option {
 	return func(o *options) {
 		o.titler = titler
 	}
@@ -212,7 +214,7 @@ func WithCaption(caption string) Option {
 // Wrapping is enabled by default (the default maximum column width is 30 characters).
 //
 // Whenever enabled, the default wrapper is used. The default wrapper wraps cells into
-// multiline content, based on their column maximum width, wrapping only on word boundaries.
+// multiline content, based on their maximum column width, wrapping only on word boundaries.
 func WithWrap(enabled bool) Option {
 	return func(o *options) {
 		if enabled {

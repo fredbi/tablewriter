@@ -7,6 +7,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.10
 	github.com/sergi/go-diff v1.2.0
 	github.com/stretchr/testify v1.8.1
+	golang.org/x/text v0.5.0
 )
 
 require (

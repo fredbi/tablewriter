@@ -1,8 +1,15 @@
 package titlers
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	"golang.org/x/text/language"
+)
 
 func TestDefaultTitler(t *testing.T) {
+	titler := NewDefault()
+
 	ts := []struct {
 		text string
 		want string
@@ -33,9 +40,12 @@ func TestDefaultTitler(t *testing.T) {
 		{".$. $.", "$  $"},
 	}
 	for _, tt := range ts {
-		got := DefaultTitler(tt.text)
-		if got != tt.want {
-			t.Errorf("want %q, bot got %q", tt.want, got)
-		}
+		require.Equal(t, tt.want, titler.Title(tt.text))
 	}
+}
+
+func TestCaseTitler(t *testing.T) {
+	titler := NewCaseTitler(language.AmericanEnglish)
+
+	require.Equal(t, "This Is Titled", titler.Title("this is TITLED"))
 }
