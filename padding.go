@@ -11,7 +11,8 @@ type (
 	// HAlignment describes how to horizontally align an element in a cell.
 	HAlignment uint8
 
-	padFunc func(in string, pad string, width int) string
+	padFunc    func(in string, pad string, width int) string
+	colAligner func(col int) padFunc
 )
 
 // Horizontal alignment

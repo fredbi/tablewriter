@@ -317,6 +317,7 @@ func (t *Table) printHeader() {
 	}
 
 	padder := t.headerAlign.padder()
+	aligner := func(_ int) padFunc { return padder }
 	maxHeight := t.rowMaxHeight[headerRowIdx]
 	headerLines := normalizeRowHeight(t.headers, maxHeight)
 
@@ -361,10 +362,11 @@ func (t *Table) printHeader() {
 	t.renderRowWithPadding(
 		headerLines,
 		maxHeight,
-		padder,
+		aligner,
 		colLeftPad, colRightPad,
 		prepadding,
 		transform,
+		t.startOfLinePad,
 	)
 
 	if t.separatorAfterHeader {
@@ -372,18 +374,30 @@ func (t *Table) printHeader() {
 	}
 }
 
+// renderRowWithPadding captures the rendering logic to display a single row of any type.
+//
+// NOTE: further refactoring is desirable to eventually use similar padding approaches for
+// header, footer and table row.
 func (t *Table) renderRowWithPadding(
 	cells [][]string,
 	maxHeight int,
-	cellPadder padFunc,
+	cellAligner colAligner,
 	leftPadder, rightPadder colPadder,
 	prepadder transformer,
 	transform colTransformer,
+	lineStarter func() string,
 ) {
+	if prepadder == nil {
+		prepadder = identity
+	}
+
 	for line := 0; line < maxHeight; line++ {
-		fmt.Fprint(t.out, t.startOfLinePad())
+		if lineStarter != nil {
+			fmt.Fprint(t.out, lineStarter())
+		}
 
 		for col := 0; col < t.numColumns; col++ {
+			cellPadder := cellAligner(col) // each column may use a different alignment
 			colWidth := t.colWidth[col]
 			value := cells[col][line]
 
@@ -407,6 +421,7 @@ func (t *Table) printFooter() {
 	}
 
 	padder := t.footerAlign.padder()
+	aligner := func(_ int) padFunc { return padder }
 	maxHeight := t.rowMaxHeight[footerRowIdx]
 	footerLines := normalizeRowHeight(t.footers, maxHeight)
 
@@ -447,10 +462,11 @@ func (t *Table) printFooter() {
 	t.renderRowWithPadding(
 		footerLines,
 		maxHeight,
-		padder,
+		aligner,
 		colLeftPad, colRightPad,
 		prepadding,
 		transform,
+		t.startOfLinePad,
 	)
 
 	if t.separatorAfterFooter {
@@ -558,7 +574,7 @@ func (t Table) getTableWidth() int {
 	// OLD return (chars + (3 * t.numColumns) + 2)
 }
 
-// printRows renders all row lines.
+// printRows renders all multi-lines rows
 func (t Table) printRows() {
 	for i, rowLines := range t.lines {
 		t.printRow(rowLines, i)
@@ -569,15 +585,14 @@ func (t *Table) cellAligner(col int) padFunc {
 	return t.columnsAlign[col].padder()
 }
 
-// printRow renders a single table row.
-//
-// Adjust column alignment based on type
+// printRow renders a single multi-lines row
 func (t *Table) printRow(columns [][]string, rowIdx int) {
 	maxHeight := t.rowMaxHeight[rowIdx]
-	numColumns := len(columns)
 	columns = normalizeRowHeight(columns, maxHeight)
 
+	aligner := t.cellAligner
 	transform := t.transformer(t.columnsParams)
+
 	colLeftPad := func(in string, i, _ int) string {
 		if t.isRightMost(i) {
 			if !t.noWhiteSpace {
@@ -609,19 +624,15 @@ func (t *Table) printRow(columns [][]string, rowIdx int) {
 		return t.tablePadding
 	}
 
-	for line := 0; line < maxHeight; line++ {
-		for col := 0; col < numColumns; col++ {
-			padder := t.cellAligner(col) // each column may use a different alignment
-			colWidth := t.colWidth[col]
-			value := columns[col][line]
-
-			fmt.Fprint(t.out, colLeftPad(value, col, line))
-			fmt.Fprint(t.out, transform(col)(padder(value, SPACE, colWidth)))
-			fmt.Fprint(t.out, colRightPad(value, col, line))
-		}
-
-		fmt.Fprint(t.out, t.newLine)
-	}
+	t.renderRowWithPadding(
+		columns,
+		maxHeight,
+		aligner,
+		colLeftPad, colRightPad,
+		nil, // at this moment, we don't have cell transforms configurable for rows
+		transform,
+		nil, // at this moment, the padding logic for rendering row is different: in that case, no start-of-line padding
+	)
 
 	if t.separatorBetweenRows {
 		t.printSepLine(true)
