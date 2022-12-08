@@ -33,19 +33,20 @@ func NewCaseTitler(tag language.Tag, opts ...cases.Option) *CaseTitler {
 func (t *DefaultTitler) Title(name string) string {
 	origLen := len(name)
 	rs := []rune(name)
+
 	for i, r := range rs {
 		switch r {
 		case '_':
 			rs[i] = ' '
 		case '.':
 			// ignore floating number 0.0
-			if (i != 0 && !isNumOrSpace(rs[i-1])) || (i != len(rs)-1 && !isNumOrSpace(rs[i+1])) {
+			if (i > 0 && !isNumOrSpace(rs[i-1])) || (i < len(rs)-1 && !isNumOrSpace(rs[i+1])) {
 				rs[i] = ' '
 			}
 		}
 	}
-	name = string(rs)
-	name = strings.TrimSpace(name) // TODO: use runes?
+	name = strings.TrimSpace(string(rs))
+
 	if len(name) == 0 && origLen > 0 {
 		// Keep at least one character. This is important to preserve
 		// empty lines in multi-line headers/footers.
