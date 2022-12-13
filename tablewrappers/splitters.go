@@ -1,7 +1,6 @@
-package wrap
+package tablewrappers
 
 import (
-	"strings"
 	"unicode"
 )
 
@@ -15,9 +14,11 @@ var (
 	LineSplitter  = func(r rune) bool { return r == '\n' || r == '\r' }
 )
 
+/*
 func makeReplacer(separators []rune) *strings.Replacer {
 	return strings.NewReplacer() // TODO
 }
+*/
 
 func composeSplitters(splitters []Splitter) Splitter {
 	return func(r rune) bool {

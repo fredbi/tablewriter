@@ -1,4 +1,4 @@
-package wrap
+package tablewrappers
 
 type (
 	Option func(*wrapOptions)

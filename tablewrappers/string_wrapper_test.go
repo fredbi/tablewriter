@@ -1,4 +1,4 @@
-package wrap
+package tablewrappers
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ func TestDefaultWrapper(t *testing.T) {
 
 	const text = "The quick brown fox jumps over the lazy dog."
 
-	t.Run(fmt.Sprintf("should wrap text in lines"), func(t *testing.T) {
+	t.Run("should wrap text in lines", func(t *testing.T) {
 		t.Parallel()
 
 		const maxWidth = 6
@@ -35,7 +35,7 @@ func TestDefaultWrapper(t *testing.T) {
 		expected := "The quick brown fox jumps over the lazy dog."
 
 		w := NewDefault()
-		actual := w.WrapString(text, 500)
+		actual := w.WrapString(text, maxWidth)
 		require.Len(t, actual, 1)
 		require.EqualValues(t, []string{expected}, actual)
 	})
