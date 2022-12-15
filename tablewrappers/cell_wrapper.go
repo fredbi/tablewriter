@@ -48,6 +48,7 @@ func (w *RowWrapper) prepare() {
 	// 1. First pass: try wrapping columns, no word breaking
 	// 2. Word breaking on natural boundaries
 	// 2. Word breaking anywhere
+	// TODO: use lengths matrix in p-values
 LOOP:
 	for bucket := 0; bucket < buckets-1; bucket++ { // progressively more agressive: 90%-width, 80%-width, ...
 		for _, col := range columns { // iterate over columns, widest first

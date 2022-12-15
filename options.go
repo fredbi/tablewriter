@@ -4,8 +4,9 @@ import (
 	"io"
 	"os"
 
+	"github.com/fredbi/tablewriter/tablewrappers"
+	wrap "github.com/fredbi/tablewriter/tablewrappers"
 	"github.com/fredbi/tablewriter/titlers"
-	"github.com/fredbi/tablewriter/wrap"
 )
 
 const (
@@ -50,7 +51,8 @@ type (
 	}
 
 	wrapOptions struct {
-		wrapper Wrapper
+		stringWrapperFactory func(*Table) StringWrapper
+		cellWrapperFactory   func(*Table) CellWrapper
 	}
 
 	options struct {
@@ -125,7 +127,7 @@ func defaultOptions(opts []Option) *options {
 
 func defaultWrapOptions() wrapOptions {
 	return wrapOptions{
-		wrapper: wrap.NewDefault(),
+		stringWrapperFactory: func(*Table) StringWrapper { return wrap.NewDefault() },
 	}
 }
 
@@ -218,17 +220,74 @@ func WithCaption(caption string) Option {
 func WithWrap(enabled bool) Option {
 	return func(o *options) {
 		if enabled {
-			o.wrapper = wrap.NewDefault()
+			o.stringWrapperFactory = func(*Table) StringWrapper { return wrap.NewDefault() }
 		} else {
-			o.wrapper = nil
+			o.stringWrapperFactory = nil
 		}
 	}
 }
 
-// WithWrapper allows to plug-in a customized cell content Wrapper.
-func WithWrapper(wrapper Wrapper) Option {
+// WithWrapper allows to inject a customized cell content StringWrapper.
+func WithWrapper(wrapper StringWrapper) Option {
 	return func(o *options) {
-		o.wrapper = wrapper
+		o.stringWrapperFactory = func(*Table) StringWrapper { return wrapper }
+	}
+}
+
+// WithWrapperFactory allows to inject a customized cell content StringWrapper,
+// constructed at rendering time.
+func WithWrapperFactory(factory func(*Table) StringWrapper) Option {
+	return func(o *options) {
+		o.stringWrapperFactory = factory
+	}
+}
+
+// WithCellWrapper allows to inject a customized cell content CellWrapper.
+//
+// Specifying a cell wrapper overrides any StringWrapper setting.
+func WithCellWrapper(factory func(*Table) CellWrapper) Option {
+	return func(o *options) {
+		o.cellWrapperFactory = factory
+	}
+}
+
+// WithMaxTableWidth defines a maximum display width for the table.
+//
+// This options injects a default CellWrapper that automatically determine width constraints on columns.
+//
+// Options determine how aggressive the wrapper can be: e.g. if individual words may be split.
+func WithMaxTableWidth(width int, opts ...tablewrappers.Option) Option {
+	return func(o *options) {
+		o.cellWrapperFactory = defaultCellWrapperFactory(width)
+	}
+}
+
+func defaultCellWrapperFactory(width int) func(*Table) CellWrapper {
+	return func(t *Table) CellWrapper {
+		var extra int
+
+		h := t.Header()
+		if len(h) > 0 {
+			extra++
+		}
+		f := t.Footer()
+		if len(f) > 0 {
+			extra++
+		}
+		r := t.Rows()
+
+		matrix := make([][]string, 0, len(r)+extra)
+		if len(h) > 0 {
+			matrix = append(matrix, h)
+		}
+		if len(f) > 0 {
+			matrix = append(matrix, f)
+		}
+		matrix = append(matrix, r...)
+		// TODO: width should be minus overhead characters
+		wrapper := tablewrappers.NewRowWrapper(matrix, width)
+
+		return wrapper
 	}
 }
 

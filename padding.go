@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/fredbi/tablewriter/wrap"
+	wrap "github.com/fredbi/tablewriter/tablewrappers"
 )
 
 type (

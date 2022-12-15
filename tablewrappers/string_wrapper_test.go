@@ -91,4 +91,22 @@ func TestDefaultWrapper(t *testing.T) {
 
 		require.EqualValues(t, expected, actual)
 	})
+
+	t.Run("should not wrap anything", func(t *testing.T) {
+		const input = "heading"
+		w := NewDefault()
+		actual := w.WrapString(input, 5)
+
+		require.Equal(t, []string{input}, actual)
+	})
+
+	t.Run("should support control characters", func(t *testing.T) {
+		t.Parallel()
+
+		const input = "\033[43;30m" + "heading" + "\033[00m"
+		w := NewDefault()
+		actual := w.WrapString(input, 10)
+
+		require.Equal(t, []string{input}, actual)
+	})
 }

@@ -49,6 +49,11 @@ func wrapWords(words []string, spc, limit, penalty int) [][]string {
 				nbrk[i] = j // add break point
 			}
 		}
+
+		// safeguard: no break point was found
+		if nbrk[i] == 0 {
+			nbrk[i] = len(words)
+		}
 	}
 
 	var lines [][]string

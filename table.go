@@ -1,12 +1,8 @@
-// Copyright 2014 Oleku Konko All rights reserved.
-// Use of this source code is governed by a MIT
-// license that can be found in the LICENSE file.
-
-// This module is a Table Writer  API for the Go Programming Language.
-// The protocols were written in pure Go and works on windows and unix systems
-
-// Create & Generate text based table
 package tablewriter
+
+// Credits to Oleku Konko, whose work published at
+// github.com/olekukonko/tablewriter has greatly inspired
+// this piece of software.
 
 import (
 	"bytes"
@@ -14,7 +10,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/fredbi/tablewriter/wrap"
+	wrap "github.com/fredbi/tablewriter/tablewrappers"
 )
 
 const (
@@ -22,18 +18,29 @@ const (
 	footerRowIdx = -2
 )
 
-type Table struct {
-	*options
+type (
 
-	// internal multi-line representations of rows
-	lines                   [][][]string // multi-line cells
-	headers                 [][]string
-	footers                 [][]string
-	numColumns              int
-	columnsToAutoMergeCells map[int]bool
-	columnsAlign            []HAlignment
-	rowMaxHeight            map[int]int // max lines per cell
-}
+	// Table renders a text table.
+	Table struct {
+		*options
+
+		// internal multi-line representations of rows
+		lines                   [][][]string
+		headers                 [][]string
+		footers                 [][]string
+		numColumns              int
+		columnsToAutoMergeCells map[int]bool
+		columnsAlign            []HAlignment
+		rowMaxHeight            map[int]int // max lines per cell
+
+		wrappers
+	}
+
+	wrappers struct {
+		stringWrapper func(string, int) []string
+		cellWrapper   func(row, col int) []string
+	}
+)
 
 // New builds a new empty table writer.
 func New(opts ...Option) *Table {
@@ -108,9 +115,11 @@ func (t *Table) prepare() {
 	t.setNumColumns()
 	t.fillAlignments()
 	t.fillMaxWidths()
+	t.setWrapper()
 
-	for i, v := range t.header {
-		lines := t.parseCell(v, i, headerRowIdx)
+	// evaluate wrapped content
+	for i, content := range t.header {
+		lines := t.parseCell(content, i, headerRowIdx)
 		t.headers = append(t.headers, lines)
 	}
 
@@ -122,8 +131,8 @@ func (t *Table) prepare() {
 		t.lines = append(t.lines, rowLines)
 	}
 
-	for i, v := range t.footer {
-		lines := t.parseCell(v, i, footerRowIdx)
+	for i, content := range t.footer {
+		lines := t.parseCell(content, i, footerRowIdx)
 		t.footers = append(t.footers, lines)
 	}
 }
@@ -149,6 +158,21 @@ func (t *Table) fillMaxWidths() {
 			t.colMaxWidth[i] = t.maxColWidth
 		}
 	}
+}
+
+func (t *Table) setWrapper() {
+	if t.cellWrapperFactory != nil {
+		wrapper := t.cellWrapperFactory(t)
+		t.cellWrapper = wrapper.WrapCell
+
+		return
+	}
+
+	if t.stringWrapperFactory != nil {
+		wrapper := t.stringWrapperFactory(t)
+		t.stringWrapper = wrapper.WrapString
+	}
+
 }
 
 // setNumColumns determines the number of columns for this table, aligned to the row
@@ -536,7 +560,8 @@ func (t *Table) printFooterSeparator() {
 // Print caption text
 func (t Table) printCaption() {
 	width := t.getTableWidth()
-	paragraph := t.wrapper.WrapString(t.captionText, width)
+	captionWrapper := wrap.NewDefault()
+	paragraph := captionWrapper.WrapString(t.captionText, width)
 
 	for linecount := 0; linecount < len(paragraph); linecount++ {
 		fmt.Fprintln(t.out, format(paragraph[linecount], t.captionParams))
@@ -727,6 +752,7 @@ func (t *Table) printRowMergeCells(writer io.Writer, columns [][]string, rowIdx 
 			}
 			fmt.Fprint(writer, SPACE)
 		}
+
 		// Check if border is set
 		// Replace with space if not set
 		fmt.Fprint(writer, conditionString(t.borders.Left, t.pColumn, SPACE))
@@ -743,29 +769,22 @@ func (t *Table) printRowMergeCells(writer io.Writer, columns [][]string, rowIdx 
 	return previousLine, displayCellBorder
 }
 
-// cellWidth determines the displayed width of a multi-lines cell.
-func cellWidth(lines []string) int {
-	maxWidth := 0
-	for _, line := range lines {
-		if w := wrap.DisplayWidth(line); w > maxWidth {
-			maxWidth = w
-		}
-	}
-
-	return maxWidth
-}
-
 // parseCell analyzes cell[col,row] of the table and computes its width and height.
 // If wrapping is enabled, the content of the cell is wrapped.
 //
 // Works also for header and footer with special row indices.
-func (t *Table) parseCell(str string, col, row int) []string {
-	paragraphs := strings.FieldsFunc(str, wrap.LineSplitter)
-	maxWidth := cellWidth(paragraphs)
+func (t *Table) parseCell(str string, col, row int) []string { // TODO replace str by content cell address
 
-	if t.wrapper != nil {
-		// cell wrapping: ensure that all paragraphs in the cell fit in the specified width.
-		// If there is a maximum allowed width for this column, use that value.
+	if t.cellWrapper != nil {
+		return t.cellWrapper(col, row)
+	}
+	// TODO
+	//maxWidth = min(t.colMaxWidth[col], maxWidth)
+	//maxWidth, paragraphs = t.wrapParagraphs(maxWidth, paragraphs)
+	paragraphs := strings.FieldsFunc(str, wrap.LineSplitter)
+	maxWidth := wrap.CellWidth(paragraphs)
+
+	if t.stringWrapper != nil {
 		maxWidth = min(t.colMaxWidth[col], maxWidth)
 		maxWidth, paragraphs = t.wrapParagraphs(maxWidth, paragraphs)
 	}
@@ -787,8 +806,8 @@ func (t *Table) wrapParagraphs(maxWidth int, paragraphs []string) (int, []string
 	wrappedParagraphs := make([]string, 0, len(paragraphs))
 
 	for i, paragraph := range paragraphs {
-		wrappedParagraph := t.wrapper.WrapString(paragraph, maxWidth)
-		newMaxWidth = max(cellWidth(wrappedParagraph), maxWidth)
+		wrappedParagraph := t.stringWrapper(paragraph, maxWidth)
+		newMaxWidth = max(wrap.CellWidth(wrappedParagraph), maxWidth)
 
 		if i > 0 && !t.reflowText {
 			// separate paragraphs with an empty line (there is no point if reflow is enabled)
