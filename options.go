@@ -51,8 +51,8 @@ type (
 	}
 
 	wrapOptions struct {
-		stringWrapperFactory func(*Table) StringWrapper
-		cellWrapperFactory   func(*Table) CellWrapper
+		stringWrapperFactory func(*Table) StringWrapper // TODO: deprecate
+		cellWrapperFactory   CellWrapperFactory
 	}
 
 	options struct {
@@ -98,6 +98,10 @@ type (
 	}
 )
 
+func (o *options) ColLimits() map[int]int {
+	return o.colMaxWidth
+}
+
 func defaultOptions(opts []Option) *options {
 	o := &options{
 		out:                  os.Stdout,
@@ -127,7 +131,8 @@ func defaultOptions(opts []Option) *options {
 
 func defaultWrapOptions() wrapOptions {
 	return wrapOptions{
-		stringWrapperFactory: func(*Table) StringWrapper { return wrap.NewDefault() },
+		stringWrapperFactory: func(*Table) StringWrapper { return wrap.NewDefault() }, // TODO remove
+		cellWrapperFactory:   defaultCellWrapperFactory(),
 	}
 }
 
@@ -258,34 +263,48 @@ func WithCellWrapper(factory func(*Table) CellWrapper) Option {
 // Options determine how aggressive the wrapper can be: e.g. if individual words may be split.
 func WithMaxTableWidth(width int, opts ...tablewrappers.Option) Option {
 	return func(o *options) {
-		o.cellWrapperFactory = defaultCellWrapperFactory(width)
+		o.cellWrapperFactory = rowCellWrapperFactory(width)
 	}
 }
 
-func defaultCellWrapperFactory(width int) func(*Table) CellWrapper {
+func makeMatrix(t *Table) [][]string {
+	var extra int
+
+	h := t.Header()
+	if len(h) > 0 {
+		extra++
+	}
+	f := t.Footer()
+	if len(f) > 0 {
+		extra++
+	}
+	r := t.Rows()
+
+	matrix := make([][]string, 0, len(r)+extra)
+	if len(h) > 0 {
+		matrix = append(matrix, h)
+	}
+	if len(f) > 0 {
+		matrix = append(matrix, f)
+	}
+	matrix = append(matrix, r...)
+
+	return matrix
+}
+
+func defaultCellWrapperFactory() CellWrapperFactory {
 	return func(t *Table) CellWrapper {
-		var extra int
+		return wrap.NewDefaultCellWrapper(
+			makeMatrix(t),
+			t.ColLimits(),
+		)
+	}
+}
 
-		h := t.Header()
-		if len(h) > 0 {
-			extra++
-		}
-		f := t.Footer()
-		if len(f) > 0 {
-			extra++
-		}
-		r := t.Rows()
-
-		matrix := make([][]string, 0, len(r)+extra)
-		if len(h) > 0 {
-			matrix = append(matrix, h)
-		}
-		if len(f) > 0 {
-			matrix = append(matrix, f)
-		}
-		matrix = append(matrix, r...)
+func rowCellWrapperFactory(width int) CellWrapperFactory {
+	return func(t *Table) CellWrapper {
 		// TODO: width should be minus overhead characters
-		wrapper := tablewrappers.NewRowWrapper(matrix, width)
+		wrapper := tablewrappers.NewRowWrapper(makeMatrix(t), width)
 
 		return wrapper
 	}

@@ -17,4 +17,6 @@ type (
 	Titler interface {
 		Title(string) string
 	}
+
+	CellWrapperFactory func(*Table) CellWrapper
 )

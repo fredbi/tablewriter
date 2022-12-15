@@ -63,7 +63,7 @@ func TestNoBorder(t *testing.T) {
            |     (empty)              |       |
   1/4/2014 | February Hosting         |  2233 | $51.00
   1/4/2014 | February Extra Bandwidth |  2233 | $30.00
-  1/4/2014 |     (Discount)           |  2233 | -$1.00
+  1/4/2014 | (Discount)               |  2233 | -$1.00
 -----------+--------------------------+-------+----------
                                         TOTAL | $145.93
                                       --------+----------
@@ -89,7 +89,7 @@ func TestNoBorder(t *testing.T) {
            |     (empty)              |      |
   1/4/2014 | February Hosting         | 2233 | $51.00
   1/4/2014 | February Extra Bandwidth | 2233 | $30.00
-  1/4/2014 |     (Discount)           | 2233 | -$1.00
+  1/4/2014 | (Discount)               | 2233 | -$1.00
 `
 
 		checkEqual(t, buf.String(), want, "border table rendering failed")
@@ -123,7 +123,7 @@ func TestWithBorder(t *testing.T) {
 |          |     (empty)              |       |         |
 | 1/4/2014 | February Hosting         |  2233 | $51.00  |
 | 1/4/2014 | February Extra Bandwidth |  2233 | $30.00  |
-| 1/4/2014 |     (Discount)           |  2233 | -$1.00  |
+| 1/4/2014 | (Discount)               |  2233 | -$1.00  |
 +----------+--------------------------+-------+---------+
 |                                       TOTAL | $145.93 |
 +----------+--------------------------+-------+---------+

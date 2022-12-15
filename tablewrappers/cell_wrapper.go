@@ -1,13 +1,47 @@
 package tablewrappers
 
-type RowWrapper struct {
-	*wrapOptions
+type (
+	// RowWrapper wraps the content of a table with a single constraint on the table width.
+	RowWrapper struct {
+		*wrapOptions
 
-	matrix       [][]string
-	rowLimit     int
-	wordSplitter Splitter
-	noOp         bool
-	columns      columns
+		matrix       [][]string
+		rowLimit     int
+		wordSplitter Splitter
+		noOp         bool
+		columns      columns
+	}
+
+	// DefaultCellWrapper wraps the content of a table with predefined constraints on column widths.
+	DefaultCellWrapper struct {
+		*DefaultWrapper
+		wordSplitter Splitter
+		matrix       [][]string
+		colMaxWidth  map[int]int // max width for a column
+	}
+)
+
+func NewDefaultCellWrapper(matrix [][]string, colMaxWidth map[int]int, opts ...Option) *DefaultCellWrapper {
+	w := &DefaultCellWrapper{
+		DefaultWrapper: NewDefault(opts...),
+		matrix:         matrix,
+		colMaxWidth:    colMaxWidth,
+	}
+
+	if w.colMaxWidth == nil {
+		w.colMaxWidth = make(map[int]int)
+	}
+
+	return w
+}
+
+func (w *DefaultCellWrapper) WrapCell(row, col int) []string {
+	limit := w.colMaxWidth[col]
+	if limit == 0 {
+		return []string{w.matrix[row][col]} // no op
+	}
+
+	return w.WrapString(w.matrix[row][col], limit)
 }
 
 func NewRowWrapper(matrix [][]string, rowWidthLimit int, opts ...Option) *RowWrapper {
@@ -23,11 +57,9 @@ func NewRowWrapper(matrix [][]string, rowWidthLimit int, opts ...Option) *RowWra
 }
 
 func (w *RowWrapper) WrapCell(row, col int) []string {
-	/*
-		if w.noOp {
-			return []string{w.matrix[row][col]}
-		}
-	*/
+	if w.noOp {
+		return []string{w.matrix[row][col]}
+	}
 
 	return w.columns[col].cells[row].content
 }
