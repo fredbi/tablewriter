@@ -4,11 +4,6 @@ import (
 	"github.com/logrusorgru/aurora/v4"
 )
 
-// Formatter is a formatting function from the github.com/logrusorgru/aurora/v4 package.
-//
-// It wraps some argument with an appropriate ANSI terminal escape sequence.
-type Formatter = func(interface{}) aurora.Value
-
 type formatOptions struct {
 	headerParams  map[int]Formatter
 	columnsParams map[int]Formatter

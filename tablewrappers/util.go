@@ -15,6 +15,7 @@ func DisplayWidth(str string) int {
 	return displayWidth(str)
 }
 
+// how about unicode.IsControl()?
 func displayWidth(str string) int {
 	return runewidth.StringWidth(ansi.ReplaceAllLiteralString(str, ""))
 }

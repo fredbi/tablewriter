@@ -4,7 +4,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/fredbi/tablewriter/tablewrappers"
 	wrap "github.com/fredbi/tablewriter/tablewrappers"
 	"github.com/fredbi/tablewriter/titlers"
 )
@@ -51,8 +50,7 @@ type (
 	}
 
 	wrapOptions struct {
-		stringWrapperFactory func(*Table) StringWrapper // TODO: deprecate
-		cellWrapperFactory   CellWrapperFactory
+		cellWrapperFactory CellWrapperFactory
 	}
 
 	options struct {
@@ -80,7 +78,6 @@ type (
 		wrapOptions
 
 		// cell formatting
-		reflowText     bool
 		autoMergeCells bool
 		noWhiteSpace   bool
 		tablePadding   string
@@ -109,7 +106,6 @@ func defaultOptions(opts []Option) *options {
 		colWidth:             make(map[int]int),
 		colMaxWidth:          make(map[int]int),
 		captionText:          "",
-		reflowText:           true,
 		maxColWidth:          MaxColWidth,
 		wrapOptions:          defaultWrapOptions(),
 		separatorOptions:     defaultSeparatorOptions(),
@@ -131,8 +127,7 @@ func defaultOptions(opts []Option) *options {
 
 func defaultWrapOptions() wrapOptions {
 	return wrapOptions{
-		stringWrapperFactory: func(*Table) StringWrapper { return wrap.NewDefault() }, // TODO remove
-		cellWrapperFactory:   defaultCellWrapperFactory(),
+		cellWrapperFactory: defaultCellWrapperFactory(),
 	}
 }
 
@@ -202,6 +197,8 @@ func WithTitledHeader(enabled bool) Option {
 }
 
 // WithTitler injects a Titler to apply to header and footer values.
+//
+// This overrides the WithTitledHeader() option.
 func WithTitler(titler Titler) Option {
 	return func(o *options) {
 		o.titler = titler
@@ -225,25 +222,10 @@ func WithCaption(caption string) Option {
 func WithWrap(enabled bool) Option {
 	return func(o *options) {
 		if enabled {
-			o.stringWrapperFactory = func(*Table) StringWrapper { return wrap.NewDefault() }
+			o.cellWrapperFactory = defaultCellWrapperFactory()
 		} else {
-			o.stringWrapperFactory = nil
+			o.cellWrapperFactory = nil
 		}
-	}
-}
-
-// WithWrapper allows to inject a customized cell content StringWrapper.
-func WithWrapper(wrapper StringWrapper) Option {
-	return func(o *options) {
-		o.stringWrapperFactory = func(*Table) StringWrapper { return wrapper }
-	}
-}
-
-// WithWrapperFactory allows to inject a customized cell content StringWrapper,
-// constructed at rendering time.
-func WithWrapperFactory(factory func(*Table) StringWrapper) Option {
-	return func(o *options) {
-		o.stringWrapperFactory = factory
 	}
 }
 
@@ -258,10 +240,11 @@ func WithCellWrapper(factory func(*Table) CellWrapper) Option {
 
 // WithMaxTableWidth defines a maximum display width for the table.
 //
-// This options injects a default CellWrapper that automatically determine width constraints on columns.
+// This options injects a CellWrapper that automatically determine width constraints on columns.
+// This option overrides max widths per column that could have been specified otherwise.
 //
 // Options determine how aggressive the wrapper can be: e.g. if individual words may be split.
-func WithMaxTableWidth(width int, opts ...tablewrappers.Option) Option {
+func WithMaxTableWidth(width int, opts ...wrap.Option) Option {
 	return func(o *options) {
 		o.cellWrapperFactory = rowCellWrapperFactory(width)
 	}
@@ -290,24 +273,6 @@ func makeMatrix(t *Table) [][]string {
 	matrix = append(matrix, r...)
 
 	return matrix
-}
-
-func defaultCellWrapperFactory() CellWrapperFactory {
-	return func(t *Table) CellWrapper {
-		return wrap.NewDefaultCellWrapper(
-			makeMatrix(t),
-			t.ColLimits(),
-		)
-	}
-}
-
-func rowCellWrapperFactory(width int) CellWrapperFactory {
-	return func(t *Table) CellWrapper {
-		// TODO: width should be minus overhead characters
-		wrapper := tablewrappers.NewRowWrapper(makeMatrix(t), width)
-
-		return wrapper
-	}
 }
 
 // WithCenterSeparator defines the string used to represent intersections of
@@ -461,17 +426,6 @@ func WithMarkdown(enabled bool) Option {
 	return func(o *options) {
 		o.borders = Border{Left: true, Top: false, Right: true, Bottom: false}
 		o.pCenter = "|"
-	}
-}
-
-// WithWrapReflow reflow multi-line paragraphs into a single paragraph.
-//
-// This is the default. Inactive is wrapping is disabled.
-//
-// Whenever disabled, cells are wrapped into paragraphs that are separated by an empty line.
-func WithWrapReflow(enabled bool) Option {
-	return func(o *options) {
-		o.reflowText = enabled
 	}
 }
 

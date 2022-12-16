@@ -10,33 +10,36 @@ func (t *Table) prepare() {
 	t.setNumColumns()
 	t.fillAlignments()
 	t.fillMaxWidths()
+
 	// evaluate wrapped content
 	t.setWrapper()
 
-	for i, content := range t.header {
-		lines := t.parseCell(content, i, headerRowIdx)
+	for i := range t.header {
+		lines := t.parseCell(i, headerRowIdx)
 		t.headers = append(t.headers, lines)
 	}
 
 	for i, cells := range t.rows {
 		var rowLines [][]string
-		for j, v := range cells {
-			rowLines = append(rowLines, t.parseCell(v, j, i))
+		for j := range cells {
+			rowLines = append(rowLines, t.parseCell(j, i))
 		}
 		t.lines = append(t.lines, rowLines)
 	}
 
-	for i, content := range t.footer {
-		lines := t.parseCell(content, i, footerRowIdx)
+	for i := range t.footer {
+		lines := t.parseCell(i, footerRowIdx)
 		t.footers = append(t.footers, lines)
 	}
 }
 
 func (t *Table) setWrapper() {
 	if t.cellWrapperFactory != nil {
+		// wrap is enabled with some wrapper
 		wrapper := t.cellWrapperFactory(t)
 		t.cellWrapper = func(row, col int) []string {
 			rowOffset := row
+
 			switch {
 			case row == headerRowIdx:
 				rowOffset = 0
@@ -57,10 +60,17 @@ func (t *Table) setWrapper() {
 		return
 	}
 
-	// TODO: deprecate this - cellWrapper should be the unique interface
-	if t.stringWrapperFactory != nil {
-		wrapper := t.stringWrapperFactory(t)
-		t.stringWrapper = wrapper.WrapString
+	// wrap is disabled: set a noop wrapper. This preserves blank space and paragraphs.
+	paragrapher := func(s string) []string { return strings.FieldsFunc(s, wrap.LineSplitter) }
+	t.cellWrapper = func(row, col int) []string {
+		switch {
+		case row == headerRowIdx:
+			return paragrapher(t.header[col])
+		case row == footerRowIdx:
+			return paragrapher(t.footer[col])
+		default:
+			return paragrapher(t.rows[row][col])
+		}
 	}
 }
 
@@ -68,54 +78,30 @@ func (t *Table) setWrapper() {
 // If wrapping is enabled, the content of the cell is wrapped.
 //
 // Works also for header and footer with special row indices.
-func (t *Table) parseCell(str string, col, row int) []string { // TODO replace str by content cell address
+func (t *Table) parseCell(col, row int) []string {
 	paragraphs := t.cellWrapper(row, col)
 
-	maxWidth := min(t.colMaxWidth[col], wrap.CellWidth(paragraphs))
-	t.setColWidth(col, maxWidth)
+	t.setColWidth(col, wrap.CellWidth(paragraphs))
 	t.setRowHeight(row, len(paragraphs))
 
 	return paragraphs
-
-	/*
-		// previous implem with paragraph wrapping
-
-		paragraphs := strings.FieldsFunc(str, wrap.LineSplitter)
-		maxWidth := wrap.CellWidth(paragraphs)
-
-		if t.stringWrapper != nil {
-			maxWidth = min(t.colMaxWidth[col], maxWidth)
-			maxWidth, paragraphs = t.wrapParagraphs(maxWidth, paragraphs)
-		}
-
-		t.setColWidth(col, maxWidth)
-		t.setRowHeight(row, len(paragraphs))
-
-		return paragraphs
-	*/
 }
 
-// wrapParagraphs wraps the text inside a multi-lines cell and returns the new width and set of lines.
-func (t *Table) wrapParagraphs(maxWidth int, paragraphs []string) (int, []string) {
-	if t.reflowText {
-		// make a single paragraph of everything.
-		paragraphs = []string{strings.Join(paragraphs, SPACE)}
+// defaultCellWrapperFactory provides a cell wrapper that abides by column-width constraints.
+func defaultCellWrapperFactory() CellWrapperFactory {
+	return func(t *Table) CellWrapper {
+		return wrap.NewDefaultCellWrapper(
+			makeMatrix(t),
+			t.ColLimits(),
+		)
 	}
+}
 
-	newMaxWidth := maxWidth
-	wrappedParagraphs := make([]string, 0, len(paragraphs))
+// rowCellWrapperFactory provides a cell wrapper that abide by a single table-width constraint.
+func rowCellWrapperFactory(width int) CellWrapperFactory {
+	return func(t *Table) CellWrapper {
+		wrapper := wrap.NewRowWrapper(makeMatrix(t), width-t.Overhead())
 
-	for i, paragraph := range paragraphs {
-		wrappedParagraph := t.stringWrapper(paragraph, maxWidth)
-		newMaxWidth = max(wrap.CellWidth(wrappedParagraph), maxWidth)
-
-		if i > 0 && !t.reflowText {
-			// separate paragraphs with an empty line (there is no point if reflow is enabled)
-			wrappedParagraphs = append(wrappedParagraphs, SPACE)
-		}
-
-		wrappedParagraphs = append(wrappedParagraphs, wrappedParagraph...)
+		return wrapper
 	}
-
-	return newMaxWidth, wrappedParagraphs
 }

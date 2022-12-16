@@ -1,5 +1,11 @@
 package tablewrappers
 
+import (
+	"log"
+
+	"github.com/davecgh/go-spew/spew"
+)
+
 type (
 	// RowWrapper wraps the content of a table with a single constraint on the table width.
 	RowWrapper struct {
@@ -15,9 +21,8 @@ type (
 	// DefaultCellWrapper wraps the content of a table with predefined constraints on column widths.
 	DefaultCellWrapper struct {
 		*DefaultWrapper
-		wordSplitter Splitter
-		matrix       [][]string
-		colMaxWidth  map[int]int // max width for a column
+		matrix      [][]string
+		colMaxWidth map[int]int // max width for a column
 	}
 )
 
@@ -65,16 +70,26 @@ func (w *RowWrapper) WrapCell(row, col int) []string {
 }
 
 func (w *RowWrapper) prepare() {
-	_, columns := buildMatrix(w.matrix, w.wordSplitter)
-	if w.rowLimit < 0 || columns.TotalWidth() < w.rowLimit {
+	log.Printf("RowWrapper limit: %d", w.rowLimit)
+	if w.rowLimit < 0 {
+		// short circuit: wrapping can't achieve the limit
 		w.noOp = true
 
-		return // nothing to be wrapped.
+		return
+	}
+
+	_, cols := buildMatrix(w.matrix, w.wordSplitter)
+	log.Printf("RowWrapper TotalWidth: %d", cols.TotalWidth())
+	if cols.TotalWidth() < w.rowLimit {
+		// short circuit: nothing to be wrapped
+		w.noOp = true
+
+		return
 	}
 	// spew.Dump(columns)
 
-	columns.SortRows() // each column gets its rows sorted by width, widest first
-	columns.Sort()     // columns get sorted, so that the first element is the widest
+	cols.SortRows() // each column gets its rows sorted by width, widest first
+	cols.Sort()     // columns get sorted, so that the first element is the widest
 
 	// TODO: run in passes
 	// 1. First pass: try wrapping columns, no word breaking
@@ -83,16 +98,28 @@ func (w *RowWrapper) prepare() {
 	// TODO: use lengths matrix in p-values
 LOOP:
 	for bucket := 0; bucket < buckets-1; bucket++ { // progressively more agressive: 90%-width, 80%-width, ...
-		for _, col := range columns { // iterate over columns, widest first
+		for _, col := range cols { // iterate over columns, widest first
+			log.Printf("assessing bucket[%d] col[%d]", bucket, col.j)
 			col.SetPValues(-9999) // computes the fixed-bucket histogram of widths (param to capture pass on words later on)
 
 			limit := col.pvalues[bucket]
+			if limit > w.rowLimit { // maybe we should do this in a first pass
+				log.Printf("skip to next bucket: p-value[%d]=%d (rowLimit=%d)", bucket, limit, w.rowLimit)
+
+				continue LOOP // the column p-value cannot work. Skip to the next bucket
+			}
+
 			if col.maxWidth <= limit {
+				log.Printf("skip to next column: col.maxWidth=%d (limit=%d)", col.maxWidth, limit)
+
 				continue // the p-value for this bucket did not result in a signficant decrease. Skip to the next column.
 			}
 
 			// try with limiting the width to the max width of p% of values in this column
+			log.Printf("RowWrapper WrapCells: %d [%T]", limit, col)
 			col.WrapCells(limit)
+			log.Printf("after|after")
+			spew.Dump(col.cells)
 
 			if col.TotalWidth() <= w.rowLimit {
 				break LOOP
@@ -101,7 +128,7 @@ LOOP:
 	}
 
 	// reorder columns and rows by their natural order
-	columns.SortNatural()
+	cols.SortNatural()
 
-	w.columns = columns
+	w.columns = cols
 }

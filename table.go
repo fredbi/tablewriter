@@ -37,8 +37,7 @@ type (
 	}
 
 	wrappers struct {
-		stringWrapper func(string, int) []string
-		cellWrapper   func(row, col int) []string
+		cellWrapper func(row, col int) []string
 	}
 )
 
@@ -197,12 +196,11 @@ func (t *Table) printSepLine(withNewLine bool) {
 	fmt.Fprint(t.out, t.center(-1)) // -
 
 	for i := 0; i < t.numColumns; i++ {
-		colWidth := t.colWidth[i]
 		fmt.Fprintf(t.out, "%s%s%s%s",
-			t.pRow,                           // -
-			strings.Repeat(t.pRow, colWidth), // -...-
-			t.pRow,                           // -
-			t.center(i))                      // +|-
+			t.pRow,                                // -
+			strings.Repeat(t.pRow, t.colWidth[i]), // -...-
+			t.pRow,                                // -
+			t.center(i))                           // +|-
 	}
 
 	if withNewLine {
@@ -527,11 +525,25 @@ func (t Table) printCaption() {
 	}
 }
 
-// Calculate the total number of characters in a row
-//
+// Computes the total number of characters in a row
+func (t Table) getTableWidth() int {
+	chars := t.overhead()
+
+	for _, width := range t.colWidth {
+		chars += width
+	}
+
+	return chars
+}
+
+// Computes the extra padding and separator needed to dispay the table.
+func (t Table) Overhead() int {
+	return t.overhead()
+}
+
 // TODO: what happens when noBlankSpace is true?
 // TODO: test when with or without borders
-func (t Table) getTableWidth() int {
+func (t Table) overhead() int {
 	var chars int
 
 	col := wrap.DisplayWidth(t.pColumn)
@@ -542,11 +554,8 @@ func (t Table) getTableWidth() int {
 	chars += padding
 	//}
 
-	for _, width := range t.colWidth {
-		chars += width
-		chars += padding
-		chars += col
-	}
+	chars += padding * t.numColumns
+	chars += col * t.numColumns
 
 	// if t.borders.Right {
 	chars += wrap.DisplayWidth(t.tablePadding)
@@ -554,8 +563,6 @@ func (t Table) getTableWidth() int {
 	//}
 
 	return chars
-
-	// OLD return (chars + (3 * t.numColumns) + 2)
 }
 
 // printRows renders all multi-lines rows
@@ -661,7 +668,7 @@ func (t *Table) printRowMergeCells(writer io.Writer, columns [][]string, rowIdx 
 		for y := 0; y < numColumns; y++ {
 
 			// Check if border is set
-			fmt.Fprint(writer, conditionString((!t.borders.Left && y == 0), SPACE, t.pColumn))
+			fmt.Fprint(writer, stringIf((!t.borders.Left && y == 0), SPACE, t.pColumn))
 			fmt.Fprint(writer, SPACE)
 
 			str := columns[y][x]
@@ -716,7 +723,7 @@ func (t *Table) printRowMergeCells(writer io.Writer, columns [][]string, rowIdx 
 
 		// Check if border is set
 		// Replace with space if not set
-		fmt.Fprint(writer, conditionString(t.borders.Left, t.pColumn, SPACE))
+		fmt.Fprint(writer, stringIf(t.borders.Left, t.pColumn, SPACE))
 		fmt.Fprint(writer, t.newLine)
 	}
 

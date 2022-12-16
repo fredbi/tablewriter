@@ -23,16 +23,7 @@ func stringIf(cond bool, ifTrue, ifFalse string) string {
 	return ifFalse
 }
 
-// String value based on condition
-func conditionString(cond bool, valid, inValid string) string {
-	if cond {
-		return valid
-	}
-
-	return inValid
-}
-
-// enforce all cells in the row to have the same number of lines
+// enforce all cells in a row to have the same number of lines
 func normalizeRowHeight(columns [][]string, height int) [][]string {
 	for i, rowLines := range columns {
 		currentHeight := len(rowLines)
@@ -44,20 +35,4 @@ func normalizeRowHeight(columns [][]string, height int) [][]string {
 	}
 
 	return columns
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-
-	return b
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-
-	return b
 }

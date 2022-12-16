@@ -59,15 +59,15 @@ func ExampleOption() {
 	table.Render()
 
 	// Output:
-	// *================================*================================*===============================*==========*
-	// |              NAME              |              SIGN              |            RATING             |          |
-	// *================================*================================*===============================*==========*
-	// | Learn East has computers       | Some Data                      | Another Data                  |          |
-	// | with adapted keyboards with    |                                |                               |          |
-	// | enlarged print etc             |                                |                               |          |
-	// | Instead of lining up the       | the way across, he splits the  | Like most ergonomic keyboards | See Data |
-	// | letters all                    | keyboard in two                |                               |          |
-	// *================================*================================*===============================*==========*
+	// *=============================*===============================*===============================*==========*
+	// |            NAME             |             SIGN              |            RATING             |          |
+	// *=============================*===============================*===============================*==========*
+	// | Learn East has computers    | Some Data                     | Another Data                  |          |
+	// | with adapted keyboards with |                               |                               |          |
+	// | enlarged print etc          |                               |                               |          |
+	// | Instead of lining up the    | the way across, he splits the | Like most ergonomic keyboards | See Data |
+	// | letters all                 | keyboard in two               |                               |          |
+	// *=============================*===============================*===============================*==========*
 }
 
 func ExampleWithNoWhiteSpace() { // TODO: NoWhiteSpace option is still full of bugs
@@ -142,15 +142,15 @@ func ExampleNewBuffered() {
 	fmt.Println(buf)
 
 	// Output:
-	// *================================*================================*===============================*==========*
-	// |              NAME              |              SIGN              |            RATING             |          |
-	// *================================*================================*===============================*==========*
-	// | Learn East has computers       | Some Data                      | Another Data                  |          |
-	// | with adapted keyboards with    |                                |                               |          |
-	// | enlarged print etc             |                                |                               |          |
-	// | Instead of lining up the       | the way across, he splits the  | Like most ergonomic keyboards | See Data |
-	// | letters all                    | keyboard in two                |                               |          |
-	// *================================*================================*===============================*==========*
+	// *=============================*===============================*===============================*==========*
+	// |            NAME             |             SIGN              |            RATING             |          |
+	// *=============================*===============================*===============================*==========*
+	// | Learn East has computers    | Some Data                     | Another Data                  |          |
+	// | with adapted keyboards with |                               |                               |          |
+	// | enlarged print etc          |                               |                               |          |
+	// | Instead of lining up the    | the way across, he splits the | Like most ergonomic keyboards | See Data |
+	// | letters all                 | keyboard in two               |                               |          |
+	// *=============================*===============================*===============================*==========*
 }
 
 func ExampleNewCSV() {
@@ -202,50 +202,42 @@ string with some lines being really long.`
 			}
 
 			for _, wrapped := range []bool{false, true} {
-				for _, reflow := range []bool{false, true} {
-					if !wrapped && reflow {
-						// invalid configuration, skip
-						continue
-					}
+				fmt.Println("mode:", mode, "titled:", titled, "wrapped:", wrapped)
 
-					fmt.Println("mode:", mode, "titled:", titled, "wrapped:", wrapped, "reflow:", reflow)
-
-					options := []tablewriter.Option{
-						tablewriter.WithWriter(os.Stdout),
-						tablewriter.WithTitledHeader(titled),
-						tablewriter.WithWrap(wrapped),
-						tablewriter.WithWrapReflow(reflow),
-					}
-
-					switch mode {
-					case testHeader:
-						options = append(options, tablewriter.WithHeader([]string{"woo", multiline}))
-						options = append(options, tablewriter.WithFooter([]string{"woo", "waa"}))
-						options = append(options, tablewriter.WithRows([][]string{{"woo", "waa"}}))
-					case testRow:
-						options = append(options, tablewriter.WithHeader([]string{"woo", "waa"}))
-						options = append(options, tablewriter.WithFooter([]string{"woo", "waa"}))
-						options = append(options, tablewriter.WithRows([][]string{{"woo", multiline}}))
-					case testFooter:
-						options = append(options, tablewriter.WithHeader([]string{"woo", "waa"}))
-						options = append(options, tablewriter.WithFooter([]string{"woo", multiline}))
-						options = append(options, tablewriter.WithRows([][]string{{"woo", "waa"}}))
-					case testFooter2:
-						options = append(options, tablewriter.WithHeader([]string{"woo", "waa"}))
-						options = append(options, tablewriter.WithFooter([]string{"", multiline}))
-						options = append(options, tablewriter.WithRows([][]string{{"woo", "waa"}}))
-					}
-
-					t := tablewriter.New(options...)
-					t.Render()
-					fmt.Println()
+				options := []tablewriter.Option{
+					tablewriter.WithWriter(os.Stdout),
+					tablewriter.WithTitledHeader(titled),
+					tablewriter.WithWrap(wrapped),
 				}
+
+				switch mode {
+				case testHeader:
+					options = append(options, tablewriter.WithHeader([]string{"woo", multiline}))
+					options = append(options, tablewriter.WithFooter([]string{"woo", "waa"}))
+					options = append(options, tablewriter.WithRows([][]string{{"woo", "waa"}}))
+				case testRow:
+					options = append(options, tablewriter.WithHeader([]string{"woo", "waa"}))
+					options = append(options, tablewriter.WithFooter([]string{"woo", "waa"}))
+					options = append(options, tablewriter.WithRows([][]string{{"woo", multiline}}))
+				case testFooter:
+					options = append(options, tablewriter.WithHeader([]string{"woo", "waa"}))
+					options = append(options, tablewriter.WithFooter([]string{"woo", multiline}))
+					options = append(options, tablewriter.WithRows([][]string{{"woo", "waa"}}))
+				case testFooter2:
+					options = append(options, tablewriter.WithHeader([]string{"woo", "waa"}))
+					options = append(options, tablewriter.WithFooter([]string{"", multiline}))
+					options = append(options, tablewriter.WithRows([][]string{{"woo", "waa"}}))
+				}
+
+				t := tablewriter.New(options...)
+				t.Render()
+				fmt.Println()
 			}
 		}
 	}
 
 	// Output:
-	// mode: 0 titled: false wrapped: false reflow: false
+	// mode: 0 titled: false wrapped: false
 	// +-----+-------------------------------------------+
 	// | woo |                    waa                    |
 	// +-----+-------------------------------------------+
@@ -255,29 +247,17 @@ string with some lines being really long.`
 	// | woo |                    waa                    |
 	// +-----+-------------------------------------------+
 	//
-	// mode: 0 titled: false wrapped: true reflow: false
-	// +-----+--------------------------------+
-	// | woo |              waa               |
-	// +-----+--------------------------------+
-	// | woo | A multiline                    |
-	// |     |                                |
-	// |     | string with some lines being   |
-	// |     | really long.                   |
-	// +-----+--------------------------------+
-	// | woo |              waa               |
-	// +-----+--------------------------------+
+	// mode: 0 titled: false wrapped: true
+	// +-----+------------------------------+
+	// | woo |             waa              |
+	// +-----+------------------------------+
+	// | woo | A multiline string with some |
+	// |     | lines being really long.     |
+	// +-----+------------------------------+
+	// | woo |             waa              |
+	// +-----+------------------------------+
 	//
-	// mode: 0 titled: false wrapped: true reflow: true
-	// +-----+--------------------------------+
-	// | woo |              waa               |
-	// +-----+--------------------------------+
-	// | woo | A multiline string with some   |
-	// |     | lines being really long.       |
-	// +-----+--------------------------------+
-	// | woo |              waa               |
-	// +-----+--------------------------------+
-	//
-	// mode: 1 titled: false wrapped: false reflow: false
+	// mode: 1 titled: false wrapped: false
 	// +-----+-------------------------------------------+
 	// | woo |                A multiline                |
 	// |     | string with some lines being really long. |
@@ -287,29 +267,17 @@ string with some lines being really long.`
 	// | woo |                    waa                    |
 	// +-----+-------------------------------------------+
 	//
-	// mode: 1 titled: false wrapped: true reflow: false
-	// +-----+--------------------------------+
-	// | woo |          A multiline           |
-	// |     |                                |
-	// |     |  string with some lines being  |
-	// |     |          really long.          |
-	// +-----+--------------------------------+
-	// | woo | waa                            |
-	// +-----+--------------------------------+
-	// | woo |              waa               |
-	// +-----+--------------------------------+
+	// mode: 1 titled: false wrapped: true
+	// +-----+------------------------------+
+	// | woo | A multiline string with some |
+	// |     |   lines being really long.   |
+	// +-----+------------------------------+
+	// | woo | waa                          |
+	// +-----+------------------------------+
+	// | woo |             waa              |
+	// +-----+------------------------------+
 	//
-	// mode: 1 titled: false wrapped: true reflow: true
-	// +-----+--------------------------------+
-	// | woo |  A multiline string with some  |
-	// |     |    lines being really long.    |
-	// +-----+--------------------------------+
-	// | woo | waa                            |
-	// +-----+--------------------------------+
-	// | woo |              waa               |
-	// +-----+--------------------------------+
-	//
-	// mode: 1 titled: true wrapped: false reflow: false
+	// mode: 1 titled: true wrapped: false
 	// +-----+-------------------------------------------+
 	// | WOO |                A MULTILINE                |
 	// |     | STRING WITH SOME LINES BEING REALLY LONG  |
@@ -319,29 +287,17 @@ string with some lines being really long.`
 	// | WOO |                    WAA                    |
 	// +-----+-------------------------------------------+
 	//
-	// mode: 1 titled: true wrapped: true reflow: false
-	// +-----+--------------------------------+
-	// | WOO |          A MULTILINE           |
-	// |     |                                |
-	// |     |  STRING WITH SOME LINES BEING  |
-	// |     |          REALLY LONG           |
-	// +-----+--------------------------------+
-	// | woo | waa                            |
-	// +-----+--------------------------------+
-	// | WOO |              WAA               |
-	// +-----+--------------------------------+
+	// mode: 1 titled: true wrapped: true
+	// +-----+------------------------------+
+	// | WOO | A MULTILINE STRING WITH SOME |
+	// |     |   LINES BEING REALLY LONG    |
+	// +-----+------------------------------+
+	// | woo | waa                          |
+	// +-----+------------------------------+
+	// | WOO |             WAA              |
+	// +-----+------------------------------+
 	//
-	// mode: 1 titled: true wrapped: true reflow: true
-	// +-----+--------------------------------+
-	// | WOO |  A MULTILINE STRING WITH SOME  |
-	// |     |    LINES BEING REALLY LONG     |
-	// +-----+--------------------------------+
-	// | woo | waa                            |
-	// +-----+--------------------------------+
-	// | WOO |              WAA               |
-	// +-----+--------------------------------+
-	//
-	// mode: 2 titled: false wrapped: false reflow: false
+	// mode: 2 titled: false wrapped: false
 	// +-----+-------------------------------------------+
 	// | woo |                    waa                    |
 	// +-----+-------------------------------------------+
@@ -351,29 +307,17 @@ string with some lines being really long.`
 	// |     | string with some lines being really long. |
 	// +-----+-------------------------------------------+
 	//
-	// mode: 2 titled: false wrapped: true reflow: false
-	// +-----+--------------------------------+
-	// | woo |              waa               |
-	// +-----+--------------------------------+
-	// | woo | waa                            |
-	// +-----+--------------------------------+
-	// | woo |          A multiline           |
-	// |     |                                |
-	// |     |  string with some lines being  |
-	// |     |          really long.          |
-	// +-----+--------------------------------+
+	// mode: 2 titled: false wrapped: true
+	// +-----+------------------------------+
+	// | woo |             waa              |
+	// +-----+------------------------------+
+	// | woo | waa                          |
+	// +-----+------------------------------+
+	// | woo | A multiline string with some |
+	// |     |   lines being really long.   |
+	// +-----+------------------------------+
 	//
-	// mode: 2 titled: false wrapped: true reflow: true
-	// +-----+--------------------------------+
-	// | woo |              waa               |
-	// +-----+--------------------------------+
-	// | woo | waa                            |
-	// +-----+--------------------------------+
-	// | woo |  A multiline string with some  |
-	// |     |    lines being really long.    |
-	// +-----+--------------------------------+
-	//
-	// mode: 2 titled: true wrapped: false reflow: false
+	// mode: 2 titled: true wrapped: false
 	// +-----+-------------------------------------------+
 	// | WOO |                    WAA                    |
 	// +-----+-------------------------------------------+
@@ -383,29 +327,17 @@ string with some lines being really long.`
 	// |     | STRING WITH SOME LINES BEING REALLY LONG  |
 	// +-----+-------------------------------------------+
 	//
-	// mode: 2 titled: true wrapped: true reflow: false
-	// +-----+--------------------------------+
-	// | WOO |              WAA               |
-	// +-----+--------------------------------+
-	// | woo | waa                            |
-	// +-----+--------------------------------+
-	// | WOO |          A MULTILINE           |
-	// |     |                                |
-	// |     |  STRING WITH SOME LINES BEING  |
-	// |     |          REALLY LONG           |
-	// +-----+--------------------------------+
+	// mode: 2 titled: true wrapped: true
+	// +-----+------------------------------+
+	// | WOO |             WAA              |
+	// +-----+------------------------------+
+	// | woo | waa                          |
+	// +-----+------------------------------+
+	// | WOO | A MULTILINE STRING WITH SOME |
+	// |     |   LINES BEING REALLY LONG    |
+	// +-----+------------------------------+
 	//
-	// mode: 2 titled: true wrapped: true reflow: true
-	// +-----+--------------------------------+
-	// | WOO |              WAA               |
-	// +-----+--------------------------------+
-	// | woo | waa                            |
-	// +-----+--------------------------------+
-	// | WOO |  A MULTILINE STRING WITH SOME  |
-	// |     |    LINES BEING REALLY LONG     |
-	// +-----+--------------------------------+
-	//
-	// mode: 3 titled: false wrapped: false reflow: false
+	// mode: 3 titled: false wrapped: false
 	// +-----+-------------------------------------------+
 	// | woo |                    waa                    |
 	// +-----+-------------------------------------------+
@@ -415,29 +347,17 @@ string with some lines being really long.`
 	// |       string with some lines being really long. |
 	// +-----+-------------------------------------------+
 	//
-	// mode: 3 titled: false wrapped: true reflow: false
-	// +-----+--------------------------------+
-	// | woo |              waa               |
-	// +-----+--------------------------------+
-	// | woo | waa                            |
-	// +-----+--------------------------------+
-	// |                A multiline           |
-	// |                                      |
-	// |        string with some lines being  |
-	// |                really long.          |
-	// +-----+--------------------------------+
+	// mode: 3 titled: false wrapped: true
+	// +-----+------------------------------+
+	// | woo |             waa              |
+	// +-----+------------------------------+
+	// | woo | waa                          |
+	// +-----+------------------------------+
+	// |       A multiline string with some |
+	// |         lines being really long.   |
+	// +-----+------------------------------+
 	//
-	// mode: 3 titled: false wrapped: true reflow: true
-	// +-----+--------------------------------+
-	// | woo |              waa               |
-	// +-----+--------------------------------+
-	// | woo | waa                            |
-	// +-----+--------------------------------+
-	// |        A multiline string with some  |
-	// |          lines being really long.    |
-	// +-----+--------------------------------+
-	//
-	// mode: 3 titled: true wrapped: false reflow: false
+	// mode: 3 titled: true wrapped: false
 	// +-----+-------------------------------------------+
 	// | WOO |                    WAA                    |
 	// +-----+-------------------------------------------+
@@ -447,27 +367,15 @@ string with some lines being really long.`
 	// |       STRING WITH SOME LINES BEING REALLY LONG  |
 	// +-----+-------------------------------------------+
 	//
-	// mode: 3 titled: true wrapped: true reflow: false
-	// +-----+--------------------------------+
-	// | WOO |              WAA               |
-	// +-----+--------------------------------+
-	// | woo | waa                            |
-	// +-----+--------------------------------+
-	// |                A MULTILINE           |
-	// |                                      |
-	// |        STRING WITH SOME LINES BEING  |
-	// |                REALLY LONG           |
-	// +-----+--------------------------------+
-	//
-	// mode: 3 titled: true wrapped: true reflow: true
-	// +-----+--------------------------------+
-	// | WOO |              WAA               |
-	// +-----+--------------------------------+
-	// | woo | waa                            |
-	// +-----+--------------------------------+
-	// |        A MULTILINE STRING WITH SOME  |
-	// |          LINES BEING REALLY LONG     |
-	// +-----+--------------------------------+
+	// mode: 3 titled: true wrapped: true
+	// +-----+------------------------------+
+	// | WOO |             WAA              |
+	// +-----+------------------------------+
+	// | woo | waa                          |
+	// +-----+------------------------------+
+	// |       A MULTILINE STRING WITH SOME |
+	// |         LINES BEING REALLY LONG    |
+	// +-----+------------------------------+
 }
 
 func ExampleFormatter() {
