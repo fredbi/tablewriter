@@ -12,13 +12,8 @@ var (
 	BlankSplitter = unicode.IsSpace
 	PunctSplitter = unicode.IsPunct
 	LineSplitter  = func(r rune) bool { return r == '\n' || r == '\r' }
+	WordBreaker   = func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }
 )
-
-/*
-func makeReplacer(separators []rune) *strings.Replacer {
-	return strings.NewReplacer() // TODO
-}
-*/
 
 func composeSplitters(splitters []Splitter) Splitter {
 	return func(r rune) bool {

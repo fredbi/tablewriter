@@ -1,11 +1,10 @@
 package tablewrappers
 
 import (
-	"log"
+	// "log"
 	"sort"
 	"strings"
-
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 )
 
 // buckets to determine p-values.
@@ -355,21 +354,22 @@ func (c column) Values() [][]string {
 // NOTE: we don't update the p-values, which remain in their initial state.
 // No need to update the word lengths matrix.
 func (c *column) WrapCells(limit int) {
-	log.Printf("before")
-	spew.Dump(c.cells)
+	// log.Printf("before")
+	// spew.Dump(c.cells)
 	for _, cell := range c.cells {
 		if limit >= cell.width {
 			continue
 		}
-		log.Printf("wrapping cell [col=%d][row=%d][limit: %d] %q", c.j, cell.i, limit, cell.words)
+		//log.Printf("wrapping cell [col=%d][row=%d][limit: %d] %q", c.j, cell.i, limit, cell.words)
+
 		lines := wrapMultiline(cell.words, limit) // wrap whole words over multiple lines
 		cell.content = lines
 		cell.width = cellWidth(lines)
 	}
 
 	c.maxWidth = cellsMaxWidth(c.Values())
-	log.Printf("after")
-	spew.Dump(c.cells)
+	// log.Printf("after")
+	// spew.Dump(c.cells)
 }
 
 // TotalWidth is the total width of all the rows that this column contains.

@@ -1,11 +1,8 @@
 package tablewrappers
 
 import (
-	// "log"
 	"math"
 	"strings"
-
-	"github.com/mattn/go-runewidth"
 )
 
 const (
@@ -95,7 +92,8 @@ func buildLengthsMatrix(words []string, spc int) ([][]int, int) {
 
 	for i := 0; i < n; i++ {
 		length[i] = make([]int, n)
-		length[i][i] = runewidth.StringWidth(words[i]) // TODO: use displayWidth(str string) to strip control sequences
+		//length[i][i] = runewidth.StringWidth(words[i]) // TODO: use displayWidth(str string) to strip control sequences
+		length[i][i] = displayWidth(words[i]) // TODO: use displayWidth(str string) to strip control sequences
 		maxWordLength = max(maxWordLength, length[i][i])
 	}
 

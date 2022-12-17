@@ -43,6 +43,7 @@ func CellWidth(lines []string) int {
 	return cellWidth(lines)
 }
 
+// cellWidth returns the display width of a multi-line cell.
 func cellWidth(lines []string) int {
 	maxWidth := 0
 	for _, line := range lines {
@@ -58,6 +59,7 @@ func cellWidth(lines []string) int {
 	return maxWidth
 }
 
+// cellsMaxWidth return the maxium width of multi-line column content in different rows.
 func cellsMaxWidth(rows [][]string) int {
 	maxWidth := 0
 	for _, row := range rows {

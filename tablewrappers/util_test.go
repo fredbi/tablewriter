@@ -12,6 +12,7 @@ func TestDisplayWidth(t *testing.T) {
 
 	expectedWidth := 13
 	if runewidth.IsEastAsian() {
+		// NOTE(fred): this check is relative to the current locale. For CJK, display widths are altered.
 		expectedWidth = 14
 	}
 
