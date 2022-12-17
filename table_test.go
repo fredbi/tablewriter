@@ -10,6 +10,7 @@ package tablewriter
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 )
@@ -56,13 +57,13 @@ func TestNoBorder(t *testing.T) {
 		table.Render()
 		const want = `    DATE   |       DESCRIPTION        |  CV2  | AMOUNT
 -----------+--------------------------+-------+----------
-  1/1/2014 | Domain name              |  2233 | $10.98
-  1/1/2014 | January Hosting          |  2233 | $54.95
+  1/1/2014 | Domain name              |  2233 |  $10.98
+  1/1/2014 | January Hosting          |  2233 |  $54.95
            |     (empty)              |       |
            |     (empty)              |       |
-  1/4/2014 | February Hosting         |  2233 | $51.00
-  1/4/2014 | February Extra Bandwidth |  2233 | $30.00
-  1/4/2014 |     (Discount)           |  2233 | -$1.00
+  1/4/2014 | February Hosting         |  2233 |  $51.00
+  1/4/2014 | February Extra Bandwidth |  2233 |  $30.00
+  1/4/2014 |     (Discount)           |  2233 |  -$1.00
 -----------+--------------------------+-------+----------
                                         TOTAL | $145.93
                                       --------+----------
@@ -116,13 +117,13 @@ func TestWithBorder(t *testing.T) {
 	want := `+----------+--------------------------+-------+---------+
 |   DATE   |       DESCRIPTION        |  CV2  | AMOUNT  |
 +----------+--------------------------+-------+---------+
-| 1/1/2014 | Domain name              |  2233 | $10.98  |
-| 1/1/2014 | January Hosting          |  2233 | $54.95  |
+| 1/1/2014 | Domain name              |  2233 |  $10.98 |
+| 1/1/2014 | January Hosting          |  2233 |  $54.95 |
 |          |     (empty)              |       |         |
 |          |     (empty)              |       |         |
-| 1/4/2014 | February Hosting         |  2233 | $51.00  |
-| 1/4/2014 | February Extra Bandwidth |  2233 | $30.00  |
-| 1/4/2014 |     (Discount)           |  2233 | -$1.00  |
+| 1/4/2014 | February Hosting         |  2233 |  $51.00 |
+| 1/4/2014 | February Extra Bandwidth |  2233 |  $30.00 |
+| 1/4/2014 |     (Discount)           |  2233 |  -$1.00 |
 +----------+--------------------------+-------+---------+
 |                                       TOTAL | $145.93 |
 +----------+--------------------------+-------+---------+
@@ -470,10 +471,10 @@ func TestPrintCaptionWithFooter(t *testing.T) {
 
 	const want = `    DATE   |       DESCRIPTION        |  CV2  | AMOUNT
 -----------+--------------------------+-------+----------
-  1/1/2014 | Domain name              |  2233 | $10.98
-  1/1/2014 | January Hosting          |  2233 | $54.95
-  1/4/2014 | February Hosting         |  2233 | $51.00
-  1/4/2014 | February Extra Bandwidth |  2233 | $30.00
+  1/1/2014 | Domain name              |  2233 |  $10.98
+  1/1/2014 | January Hosting          |  2233 |  $54.95
+  1/4/2014 | February Hosting         |  2233 |  $51.00
+  1/4/2014 | February Extra Bandwidth |  2233 |  $30.00
 -----------+--------------------------+-------+----------
                                         TOTAL | $146.93
                                       --------+----------
@@ -615,18 +616,15 @@ func TestPrintSepLine(t *testing.T) {
 	checkEqual(t, buf.String(), want, "line rendering failed")
 }
 
-// TODO: should actually strip control characters
 func TestAnsiStrip(t *testing.T) {
 	header := make([]string, 12)
 	val := " "
-	var want string
+
 	// blank headers with ANSI control sequence
 	for i := range header {
 		header[i] = "\033[43;30m" + val + "\033[00m"
-		want = fmt.Sprintf("%s+-%s-", want, strings.Repeat("-", len(strings.ReplaceAll(val, " ", ""))+1))
 		val += " "
 	}
-	want += "+"
 
 	var buf bytes.Buffer
 	table := New(
@@ -636,7 +634,9 @@ func TestAnsiStrip(t *testing.T) {
 
 	table.prepare()
 	table.printSepLine(false)
-	checkEqual(t, buf.String(), want, "line rendering failed")
+	checkEqual(t, buf.String(), "+---+---+---+---+---+---+---+---+---+---+---+---+",
+		"separator line rendering failed",
+	)
 }
 
 func TestSubclass(t *testing.T) {
@@ -661,6 +661,18 @@ func TestSubclass(t *testing.T) {
   D  The Gopher             800
 `
 	checkEqual(t, buf.String(), want, "test subclass failed")
+}
+
+func newCustomizedTable(out io.Writer) *Table {
+	return New(
+		WithWriter(out),
+		WithCenterSeparator(""),
+		WithColumnSeparator(""),
+		WithRowSeparator(""),
+		WithAllBorders(false),
+		WithCellAlignment(AlignLeft),
+		WithHeader([]string{}),
+	)
 }
 
 func TestAutoMergeRows(t *testing.T) {
@@ -801,7 +813,7 @@ func TestClearRows(t *testing.T) {
 		const originalWant = `+----------+-------------+-------+---------+
 |   DATE   | DESCRIPTION |  CV2  | AMOUNT  |
 +----------+-------------+-------+---------+
-| 1/1/2014 | Domain name |  2233 | $10.98  |
+| 1/1/2014 | Domain name |  2233 |  $10.98 |
 +----------+-------------+-------+---------+
 |                          TOTAL | $145.93 |
 +----------+-------------+-------+---------+
@@ -1073,15 +1085,29 @@ func TestRowMaxWidth(t *testing.T) {
 		{"1/4/2014", "    (Discount)", "2233", "-$1.00"},
 	}
 
-	table, buf := NewBuffered(
-		WithHeader([]string{"Date", "Name", "Items", "Price"}),
-		WithFooter([]string{"", "", "Total", "$145.93"}),
-		WithRows(data),
-		WithMaxTableWidth(30),
-	)
+	t.Run("should render within global width constraint", func(t *testing.T) {
+		table, buf := NewBuffered(
+			WithHeader([]string{"Date", "Name", "Items", "Price"}),
+			WithFooter([]string{"", "", "Total", "$145.93"}),
+			WithRows(data),
+			WithMaxTableWidth(30),
+		)
 
-	table.Render()
+		table.Render()
 
-	t.Log(buf.String())
+		t.Log(buf.String())
+	})
+
+	t.Run("should render within local width constraint", func(t *testing.T) {
+		table, buf := NewBuffered(
+			WithHeader([]string{"Date", "Name", "Items", "Price"}),
+			WithFooter([]string{"", "", "Total", "$145.93"}),
+			WithRows(data),
+		)
+
+		table.Render()
+
+		t.Log(buf.String())
+	})
 
 }

@@ -691,11 +691,11 @@ func (t *Table) printRowMergeCells(writer io.Writer, columns [][]string, rowIdx 
 				}
 
 				// Store the full line to merge mutli-lines cells
-				fullLine := strings.TrimRight(strings.Join(columns[y], " "), " ")
-				if len(previousLine) > y && fullLine == previousLine[y] && fullLine != "" && mergeCell {
+				fullLine := strings.TrimRight(strings.Join(columns[y], SPACE), SPACE)
+				if len(previousLine) > y && fullLine == previousLine[y] && fullLine != NOPADDING && mergeCell {
 					// If this cell is identical to the one above but not empty, we don't display the border and keep the cell empty.
 					displayCellBorder = append(displayCellBorder, false)
-					str = ""
+					str = NOPADDING
 				} else {
 					// First line or different content, keep the content and print the cell border
 					displayCellBorder = append(displayCellBorder, true)
@@ -730,7 +730,7 @@ func (t *Table) printRowMergeCells(writer io.Writer, columns [][]string, rowIdx 
 	// The new previous line is the current one
 	previousLine = make([]string, numColumns)
 	for y := 0; y < numColumns; y++ {
-		previousLine[y] = strings.TrimRight(strings.Join(columns[y], " "), " ") // Store the full line for multi-lines cells
+		previousLine[y] = strings.TrimRight(strings.Join(columns[y], SPACE), SPACE) // store the full line for multi-lines cells
 	}
 
 	// Returns the newly added line and wether or not a border should be displayed above.

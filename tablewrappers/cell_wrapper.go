@@ -2,8 +2,7 @@ package tablewrappers
 
 import (
 	"log"
-
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 )
 
 type (
@@ -118,8 +117,6 @@ LOOP:
 			// try with limiting the width to the max width of p% of values in this column
 			log.Printf("RowWrapper WrapCells: %d [%T]", limit, col)
 			col.WrapCells(limit)
-			log.Printf("after|after")
-			spew.Dump(col.cells)
 
 			if col.TotalWidth() <= w.rowLimit {
 				break LOOP
