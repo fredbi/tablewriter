@@ -70,7 +70,7 @@ func ExampleOption() {
 	// *=============================*===============================*===============================*==========*
 }
 
-func ExampleWithNoWhiteSpace() { // TODO: NoWhiteSpace option is still full of bugs
+func ExampleWithNoWhiteSpace() {
 	data := [][]string{
 		{"Learn East has computers with adapted keyboards with enlarged print etc", "Some Data    ", "Another Data "},
 		{"Instead of lining up the letters all ", "the way across, he splits the keyboard in two", "Like most ergonomic keyboards", "See Data"},
@@ -429,4 +429,28 @@ func ExampleWithRowSeparator() {
 	// [31m|[0m C    [31m|[0m The Ugly              [31m|[0m    120 [31m|[0m
 	// [31m|[0m D    [31m|[0m The Gopher            [31m|[0m    800 [31m|[0m
 	// [31m+[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m+[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m+[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m-[0m[31m+[0m
+}
+
+func ExampleWithMaxTableWidth() {
+	data := sampleData()
+
+	// adapt the width of the table to the maximum display size
+	table := tablewriter.New(
+		tablewriter.WithHeader([]string{"Name", "Sign", "Rating"}),
+		tablewriter.WithRows(data),
+		tablewriter.WithMaxTableWidth(30),
+	)
+	table.Render()
+
+	// Output:
+	// 	+------+------------+--------+
+	// | NAME |    SIGN    | RATING |
+	// +------+------------+--------+
+	// | A    | The Good   |    500 |
+	// | B    | The Very   |    288 |
+	// |      | very Bad   |        |
+	// |      | Man        |        |
+	// | C    | The Ugly   |    120 |
+	// | D    | The Gopher |    800 |
+	// +------+------------+--------+
 }

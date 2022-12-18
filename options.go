@@ -346,7 +346,9 @@ func WithFooterLine(enabled bool) Option {
 	}
 }
 
-// No White Space. TODO: more tests and bug fixes.
+// WithNoWhiteSpace packs the table by removing some padding.
+//
+// This is disabled by default.
 func WithNoWhiteSpace(enabled bool) Option {
 	return func(o *options) {
 		o.noWhiteSpace = enabled
@@ -445,7 +447,7 @@ func WithMergeCells(enabled bool) Option {
 	}
 }
 
-// WithColMinWidth specifies the minimum width of columns. TODO: testing. Does this work?
+// WithColMinWidth specifies the minimum width of columns.
 func WithColMinWidth(column int, width int) Option {
 	return func(o *options) {
 		o.colWidth[column] = width

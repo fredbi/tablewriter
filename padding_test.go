@@ -10,6 +10,7 @@ func TestPadDefault(t *testing.T) {
 	t.Parallel()
 
 	t.Run("should pad right (left-aligned)", func(t *testing.T) {
+		t.Parallel()
 		const (
 			toPad    = "ABC"
 			expected = "ABC  "
@@ -21,6 +22,7 @@ func TestPadDefault(t *testing.T) {
 
 	t.Run("automatic alignment for numbers", func(t *testing.T) {
 		t.Run("should pad number left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "123"
 				expected = "  123"
@@ -32,6 +34,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad decimal number left (point) (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "12.3"
 				expected = " 12.3"
@@ -43,6 +46,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad decimal number left (comma) (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "12,3"
 				expected = " 12,3"
@@ -54,6 +58,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad signed number left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "-123"
 				expected = " -123"
@@ -65,6 +70,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad signed number left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "+123"
 				expected = " +123"
@@ -75,6 +81,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad number with thousands separator (comma) (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "123,456,789"
 				expected = " 123,456,789"
@@ -85,6 +92,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad number with thousands separator (space) (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "123 456 789"
 				expected = " 123 456 789"
@@ -95,6 +103,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad % left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "2%"
 				expected = "   2%"
@@ -105,6 +114,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "94.2%"
 				expected = " 94.2%"
@@ -115,6 +125,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "-4.2%"
 				expected = " -4.2%"
@@ -125,6 +136,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad currency amount left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "$123"
 				expected = " $123"
@@ -135,6 +147,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad negative currency amount left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "$-123"
 				expected = " $-123"
@@ -145,6 +158,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad negative currency amount left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "-$123"
 				expected = " -$123"
@@ -155,6 +169,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad currency amount left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "€123"
 				expected = " €123"
@@ -165,6 +180,7 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad currency amount left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "123¥"
 				expected = " 123¥"
@@ -175,12 +191,35 @@ func TestPadDefault(t *testing.T) {
 		})
 
 		t.Run("should pad scientific number left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
 			const (
 				toPad    = "1.2e-10"
 				expected = " 1.2e-10"
 			)
 
 			padded := padDefault(toPad, SPACE, 8)
+			require.Equal(t, expected, padded)
+		})
+
+		t.Run("should pad arabic digits left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
+			const (
+				toPad    = "٣.٨"
+				expected = "  ٣.٨"
+			)
+
+			padded := padDefault(toPad, SPACE, 5)
+			require.Equal(t, expected, padded)
+		})
+
+		t.Run("should pad other number runes left (right-aligned)", func(t *testing.T) {
+			t.Parallel()
+			const (
+				toPad    = "Ⅷ "
+				expected = " Ⅷ "
+			)
+
+			padded := padDefault(toPad, SPACE, 3)
 			require.Equal(t, expected, padded)
 		})
 	})
@@ -190,6 +229,7 @@ func TestPadCenter(t *testing.T) {
 	t.Parallel()
 
 	t.Run("should center string (odd)", func(t *testing.T) {
+		t.Parallel()
 		const (
 			toPad    = "abc"
 			expected = " abc "
@@ -200,6 +240,7 @@ func TestPadCenter(t *testing.T) {
 	})
 
 	t.Run("should center string (even)", func(t *testing.T) {
+		t.Parallel()
 		const (
 			toPad    = "abc"
 			expected = " abc  "

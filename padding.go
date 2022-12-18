@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	rexNumerical = regexp.MustCompile(`^((\+|-)?\pS)?(\+|-)?((\d+?)|(\d{3}[\s,]))+([\.,]\d+)?(%|\pS|([eE][\+-]{0,1}\d+))?$`)
+	rexNumerical = regexp.MustCompile(`^\s*((\+|-)?\pS)?(\+|-)?((\pN+?)|(\pN{3}[\s,]))+([\.,]\pN+)?(%|\pS|([eE][\+-]{0,1}\pN+))?\s*$`)
 )
 
 // padder yields the appropriate padding function for the alignment type.
@@ -85,5 +85,5 @@ func padLeft(s, pad string, width int) string {
 
 // isNumerical detects numbers, percentages and currency amounts.
 func isNumerical(str string) bool {
-	return rexNumerical.MatchString(strings.TrimSpace(str))
+	return rexNumerical.MatchString(str)
 }

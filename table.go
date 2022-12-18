@@ -182,6 +182,7 @@ func (t *Table) center(i int) string {
 	switch {
 	case i == -1 && !t.borders.Left: // ICI - strange: for isLeftMost we have i == 0 && !t.borders.Left
 		fallthrough // -
+	// return i == t.lastCol() && !t.borders.Right
 	case t.isRightMost(i):
 		return t.pRow // -
 	default:
@@ -193,14 +194,19 @@ func (t *Table) center(i int) string {
 //
 // BUG(fred): this doesn't work well with noWhiteSpace
 func (t *Table) printSepLine(withNewLine bool) {
-	fmt.Fprint(t.out, t.center(-1)) // -
+	if !t.noWhiteSpace {
+		fmt.Fprint(t.out, t.center(-1)) // -
+	}
 
 	for i := 0; i < t.numColumns; i++ {
-		fmt.Fprintf(t.out, "%s%s%s%s",
-			t.pRow,                                // -
-			strings.Repeat(t.pRow, t.colWidth[i]), // -...-
-			t.pRow,                                // -
-			t.center(i))                           // +|-
+		if !t.noWhiteSpace {
+			fmt.Fprint(t.out, t.pRow) // -
+		}
+		fmt.Fprint(t.out, strings.Repeat(t.pRow, t.colWidth[i])) // -...-
+		if !t.noWhiteSpace {
+			fmt.Fprint(t.out, t.pRow) // -
+		}
+		fmt.Fprint(t.out, t.center(i)) // +|-
 	}
 
 	if withNewLine {
@@ -212,7 +218,7 @@ func (t *Table) printSepLine(withNewLine bool) {
 //
 // This is used when rendering merged cells.
 //
-// TODO(fred): can't this be factorized with printSepLine??
+// TODO(fred): this should be factorized with printSepLine
 func (t *Table) printLineOptionalCellSeparators(withNewLine bool, displayCellSeparator []bool) {
 	fmt.Fprint(t.out, t.pCenter) // ?? + never -???
 
@@ -240,8 +246,7 @@ func (t *Table) printLineOptionalCellSeparators(withNewLine bool, displayCellSep
 	}
 }
 
-// headerPrepadder yields a transform applied to header and footer cells,
-// before padding.
+// headerPrepadder yields a transform applied BEFORE padding to header or footer cells.
 func (t *Table) headerPrepadder() transformer {
 	if t.titler != nil {
 		return t.titler.Title
@@ -250,14 +255,18 @@ func (t *Table) headerPrepadder() transformer {
 	return identity
 }
 
+// isRightMost position on this row?
 func (t *Table) isRightMost(i int) bool {
 	return i == t.lastCol() && !t.borders.Right
 }
 
+// isLefttMost position on this row?
 func (t *Table) isLeftMost(i int) bool {
 	return i == 0 && !t.borders.Left
 }
 
+// hasEscSeq indicates if we have ANSI escape sequence parameters
+// set for at least one colum.
 func (t *Table) hasEscSeq(params map[int]Formatter) bool {
 	return len(params) > 0
 }
@@ -516,7 +525,7 @@ func (t *Table) printFooterSeparator() {
 
 // Print caption text
 func (t Table) printCaption() {
-	width := t.getTableWidth() // TODO: secure this as it is buggy right now
+	width := t.getTableWidth()
 	captionWrapper := wrap.NewDefault()
 	paragraph := captionWrapper.WrapString(t.captionText, width)
 
@@ -525,7 +534,7 @@ func (t Table) printCaption() {
 	}
 }
 
-// Computes the total number of characters in a row
+// getTableWidth yields the total number of characters in a row
 func (t Table) getTableWidth() int {
 	chars := t.overhead()
 
@@ -536,33 +545,29 @@ func (t Table) getTableWidth() int {
 	return chars
 }
 
-// Computes the extra padding and separator needed to dispay the table.
+// Overhead yields the amount extra padding and separators needed to display the table.
 func (t Table) Overhead() int {
 	return t.overhead()
 }
 
-// TODO: what happens when noBlankSpace is true?
-// TODO: test when with or without borders
 func (t Table) overhead() int {
 	var chars int
 
-	col := wrap.DisplayWidth(t.pColumn)
-	padding := wrap.DisplayWidth(t.tablePadding)
+	colSepWidth := wrap.DisplayWidth(t.pColumn)
+	paddingWidth := wrap.DisplayWidth(t.tablePadding)
 
-	// if t.borders.Left {
-	chars += col
-	chars += padding
-	//}
+	if !t.noWhiteSpace {
+		chars += paddingWidth * t.numColumns * 2
+		chars += colSepWidth * (t.numColumns + 1)
 
-	chars += padding * t.numColumns
-	chars += col * t.numColumns
+		return chars
+	}
 
-	// if t.borders.Right {
-	chars += wrap.DisplayWidth(t.tablePadding)
-	chars += col
-	//}
+	if t.numColumns > 0 {
+		return paddingWidth * (t.numColumns - 1)
+	}
 
-	return chars
+	return 0
 }
 
 // printRows renders all multi-lines rows
@@ -639,9 +644,9 @@ func (t *Table) printRowsMergeCells() {
 	)
 
 	for i, lines := range t.lines {
-		// We store the display of the current line in a tmp writer, as we need to know which border needs to be print above
+		// we store the display of the current line in a tmp writer, as we need to know which border needs to be print above
 		previousLine, displayCellBorder = t.printRowMergeCells(&tmpWriter, lines, i, previousLine)
-		if i > 0 { // We don't need to print borders above first line
+		if i > 0 { // we don't need to print borders above first line
 			if t.separatorBetweenRows {
 				t.printLineOptionalCellSeparators(true, displayCellBorder)
 			}
@@ -657,7 +662,7 @@ func (t *Table) printRowsMergeCells() {
 // print row Information to a writer and merge identical cells.
 // Adjust column alignment based on type
 //
-// TODO(fred): refactor along the same lines as printHeader and printRow.
+// TODO(fred): this should be refactored along the same lines as printHeader and printRow.
 func (t *Table) printRowMergeCells(writer io.Writer, columns [][]string, rowIdx int, previousLine []string) ([]string, []bool) {
 	max := t.rowMaxHeight[rowIdx]
 	numColumns := len(columns)

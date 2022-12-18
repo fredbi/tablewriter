@@ -13,9 +13,13 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestInternals(t *testing.T) {
+	t.Parallel()
+
 	t.Run("number of lines should match rows", func(t *testing.T) {
 		data := [][]string{
 			{"A", "The Good", "500"},
@@ -37,6 +41,8 @@ func TestInternals(t *testing.T) {
 }
 
 func TestNoBorder(t *testing.T) {
+	t.Parallel()
+
 	data := [][]string{
 		{"1/1/2014", "Domain name", "2233", "$10.98"},
 		{"1/1/2014", "January Hosting", "2233", "$54.95"},
@@ -94,9 +100,101 @@ func TestNoBorder(t *testing.T) {
 
 		checkEqual(t, buf.String(), want, "border table rendering failed")
 	})
+
+	t.Run("should compute overhead with borders disabled", func(t *testing.T) {
+		table := New(
+			WithHeader([]string{"Date", "Description", "CV2", "Amount"}),
+			WithRows(data),
+			WithWrap(false),
+			WithAllBorders(false),
+		)
+		table.prepare()
+
+		require.Equal(t,
+			13,
+			table.Overhead(),
+		)
+	})
+
+	t.Run("should compute overhead with borders enabled", func(t *testing.T) {
+		table := New(
+			WithHeader([]string{"Date", "Description", "CV2", "Amount"}),
+			WithRows(data),
+			WithWrap(false),
+			WithAllBorders(true),
+		)
+		table.prepare()
+
+		require.Equal(t,
+			13,
+			table.Overhead(),
+		)
+	})
+
+	t.Run("should compute overhead with borders disabled, no white space", func(t *testing.T) {
+		const expected = `  DATE         DESCRIPTION        CV2  AMOUNT
+--------+------------------------+----+-------
+1/1/2014 Domain name              2233 $10.98
+1/1/2014 January Hosting          2233 $54.95
+             (empty)                   ` + `
+             (empty)                   ` + `
+1/4/2014 February Hosting         2233 $51.00
+1/4/2014 February Extra Bandwidth 2233 $30.00
+1/4/2014     (Discount)           2233 -$1.00
+`
+
+		table, buf := NewBuffered(
+			WithHeader([]string{"Date", "Description", "CV2", "Amount"}),
+			WithRows(data),
+			WithWrap(false),
+			WithAllBorders(false),
+			WithNoWhiteSpace(true),
+		)
+		table.Render()
+		checkEqual(t, buf.String(), expected)
+
+		require.Equal(t,
+			3,
+			table.Overhead(),
+		)
+	})
+
+	t.Run("should compute overhead with borders disabled, no white space, no separator line", func(t *testing.T) {
+		const expected = `  DATE         DESCRIPTION        CV2  AMOUNT
+1/1/2014 Domain name              2233 $10.98
+1/1/2014 January Hosting          2233 $54.95
+             (empty)                   ` + `
+             (empty)                   ` + `
+1/4/2014 February Hosting         2233 $51.00
+1/4/2014 February Extra Bandwidth 2233 $30.00
+1/4/2014     (Discount)           2233 -$1.00
+`
+
+		table, buf := NewBuffered(
+			WithHeader([]string{"Date", "Description", "CV2", "Amount"}),
+			WithRows(data),
+			WithWrap(false),
+			WithHeaderLine(false),
+			WithAllBorders(false),
+			WithNoWhiteSpace(true),
+			WithCenterSeparator(""),
+			WithColumnSeparator(""),
+			WithRowSeparator(""),
+		)
+
+		table.Render()
+		checkEqual(t, buf.String(), expected)
+
+		require.Equal(t,
+			3,
+			table.Overhead(),
+		)
+	})
 }
 
 func TestWithBorder(t *testing.T) {
+	t.Parallel()
+
 	data := [][]string{
 		{"1/1/2014", "Domain name", "2233", "$10.98"},
 		{"1/1/2014", "January Hosting", "2233", "$54.95"},
@@ -133,6 +231,8 @@ func TestWithBorder(t *testing.T) {
 }
 
 func TestPrintingInMarkdown(t *testing.T) {
+	t.Parallel()
+
 	data := [][]string{
 		{"1/1/2014", "Domain name", "2233", "$10.98"},
 		{"1/1/2014", "January Hosting", "2233", "$54.95"},
@@ -160,6 +260,8 @@ func TestPrintingInMarkdown(t *testing.T) {
 }
 
 func TestTitleCase(t *testing.T) {
+	t.Parallel()
+
 	line := []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c"}
 	const (
 		titledCols = "| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | A | B | C |\n"
@@ -190,6 +292,8 @@ func TestTitleCase(t *testing.T) {
 }
 
 func TestPrintFooter(t *testing.T) {
+	t.Parallel()
+
 	line := []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c"}
 	const (
 		data = "  1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | a | b | c\n"
@@ -374,12 +478,17 @@ func TestPrintFooter(t *testing.T) {
 			checkEqual(t, buf.String(), cols+seps+data+seps+fcols+fseps, "rendering failed")
 		})
 	})
-	t.Run("with no whitespace", func(t *testing.T) {
-		// TODO
-	})
+
+	/*
+		t.Run("with no whitespace", func(t *testing.T) {
+			// TODO: more testing with packing tables with minimal padding
+		})
+	*/
 }
 
 func TestPrintFooterUntitled(t *testing.T) {
+	t.Parallel()
+
 	table, buf := NewBuffered(
 		WithTitledHeader(false),
 		WithHeader([]string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c"}),
@@ -395,6 +504,8 @@ func TestPrintFooterUntitled(t *testing.T) {
 }
 
 func TestPrintShortCaption(t *testing.T) {
+	t.Parallel()
+
 	data := [][]string{
 		{"A", "The Good", "500"},
 		{"B", "The Very very Bad Man", "288"},
@@ -423,6 +534,8 @@ Short caption.
 }
 
 func TestPrintLongCaptionWithShortExample(t *testing.T) {
+	t.Parallel()
+
 	data := [][]string{
 		{"A", "The Good", "500"},
 		{"B", "The Very very Bad Man", "288"},
@@ -453,6 +566,8 @@ that needs to be solved.
 }
 
 func TestPrintCaptionWithFooter(t *testing.T) {
+	t.Parallel()
+
 	data := [][]string{
 		{"1/1/2014", "Domain name", "2233", "$10.98"},
 		{"1/1/2014", "January Hosting", "2233", "$54.95"},
@@ -485,6 +600,8 @@ width of the table.
 }
 
 func TestPrintLongCaptionWithLongExample(t *testing.T) {
+	t.Parallel()
+
 	header := []string{"Name", "Sign", "Rating"}
 	data := [][]string{
 		{"Learn East has computers with adapted keyboards with enlarged print etc", "Some Data", "Another Data"},
@@ -594,6 +711,8 @@ solved.
 }
 
 func TestPrintSepLine(t *testing.T) {
+	t.Parallel()
+
 	header := make([]string, 12)
 	val := " "
 	want := ""
@@ -617,6 +736,8 @@ func TestPrintSepLine(t *testing.T) {
 }
 
 func TestAnsiStrip(t *testing.T) {
+	t.Parallel()
+
 	header := make([]string, 12)
 	val := " "
 
@@ -640,6 +761,8 @@ func TestAnsiStrip(t *testing.T) {
 }
 
 func TestSubclass(t *testing.T) {
+	t.Parallel()
+
 	buf := new(bytes.Buffer)
 	table := newCustomizedTable(buf)
 
@@ -676,6 +799,8 @@ func newCustomizedTable(out io.Writer) *Table {
 }
 
 func TestAutoMergeRows(t *testing.T) {
+	t.Parallel()
+
 	data := [][]string{
 		{"A", "The Good", "500"},
 		{"A", "The Very very Bad Man", "288"},
@@ -795,6 +920,8 @@ func TestAutoMergeRows(t *testing.T) {
 }
 
 func TestClearRows(t *testing.T) {
+	t.Parallel()
+
 	data := [][]string{
 		{"1/1/2014", "Domain name", "2233", "$10.98"},
 	}
@@ -866,6 +993,8 @@ func TestClearRows(t *testing.T) {
 }
 
 func TestNoWrap(t *testing.T) {
+	t.Parallel()
+
 	data := [][]string{
 		{"1/1/2014", "Domain name", "2233", "$10.98"},
 	}
@@ -888,6 +1017,8 @@ func TestNoWrap(t *testing.T) {
 }
 
 func TestMoreDataColumnsThanHeaders(t *testing.T) {
+	t.Parallel()
+
 	var (
 		header = []string{"A", "B", "C"}
 		data   = [][]string{
@@ -915,6 +1046,8 @@ func TestMoreDataColumnsThanHeaders(t *testing.T) {
 }
 
 func TestMoreFooterColumnsThanHeaders(t *testing.T) {
+	t.Parallel()
+
 	var (
 		header = []string{"A", "B", "C"}
 		data   = [][]string{
@@ -945,6 +1078,8 @@ func TestMoreFooterColumnsThanHeaders(t *testing.T) {
 }
 
 func TestSetColMinWidth(t *testing.T) {
+	t.Parallel()
+
 	var (
 		header = []string{"AAA", "BBB", "CCC"}
 		data   = [][]string{
@@ -976,6 +1111,8 @@ func TestSetColMinWidth(t *testing.T) {
 }
 
 func TestNumberAlign(t *testing.T) {
+	t.Parallel()
+
 	data := [][]string{
 		{"AAAAAAAAAAAAA", "BBBBBBBBBBBBB", "CCCCCCCCCCCCCC"},
 		{"A", "B", "C"},
@@ -1003,6 +1140,8 @@ func TestNumberAlign(t *testing.T) {
 }
 
 func TestCustomAlign(t *testing.T) {
+	t.Parallel()
+
 	var (
 		header = []string{"AAA", "BBB", "CCC"}
 		data   = [][]string{
@@ -1040,6 +1179,8 @@ func TestCustomAlign(t *testing.T) {
 }
 
 func TestKubeFormat(t *testing.T) {
+	t.Parallel()
+
 	data := [][]string{
 		{"1/1/2014", "jan_hosting", "2233", "$10.98"},
 		{"1/1/2014", "feb_hosting", "2233", "$54.95"},
@@ -1075,7 +1216,9 @@ func TestKubeFormat(t *testing.T) {
 	checkEqual(t, buf.String(), want, "kube format rendering failed")
 }
 
-func TestRowMaxWidth(t *testing.T) {
+func TestMaxTableWidth(t *testing.T) {
+	t.Parallel()
+
 	data := [][]string{
 		{"1/1/2014", "Domain name", "2233", "$10.98"},
 		{"1/1/2014", "January Hosting", "2233", "$54.95"},
@@ -1086,6 +1229,26 @@ func TestRowMaxWidth(t *testing.T) {
 	}
 
 	t.Run("should render within global width constraint", func(t *testing.T) {
+		const expected = `+----------+------------+-------+---------+
+|   DATE   |    NAME    | ITEMS |  PRICE  |
++----------+------------+-------+---------+
+| 1/1/2014 | Domain     |  2233 |  $10.98 |
+|          | name       |       |         |
+| 1/1/2014 | January    |  2233 |  $54.95 |
+|          | Hosting    |       |         |
+|          | (empty)    |       |         |
+|          | (empty)    |       |         |
+| 1/4/2014 | February   |  2233 |  $51.00 |
+|          | Hosting    |       |         |
+| 1/4/2014 | February   |  2233 |  $30.00 |
+|          | Extra      |       |         |
+|          | Bandwidth  |       |         |
+| 1/4/2014 | (Discount) |  2233 |  -$1.00 |
++----------+------------+-------+---------+
+|                         TOTAL | $145.93 |
++----------+------------+-------+---------+
+`
+
 		table, buf := NewBuffered(
 			WithHeader([]string{"Date", "Name", "Items", "Price"}),
 			WithFooter([]string{"", "", "Total", "$145.93"}),
@@ -1095,10 +1258,23 @@ func TestRowMaxWidth(t *testing.T) {
 
 		table.Render()
 
-		t.Log(buf.String())
+		checkEqual(t, buf.String(), expected)
 	})
 
 	t.Run("should render within local width constraint", func(t *testing.T) {
+		const expected = `+----------+--------------------------+-------+---------+
+|   DATE   |           NAME           | ITEMS |  PRICE  |
++----------+--------------------------+-------+---------+
+| 1/1/2014 | Domain name              |  2233 |  $10.98 |
+| 1/1/2014 | January Hosting          |  2233 |  $54.95 |
+|          | (empty) (empty)          |       |         |
+| 1/4/2014 | February Hosting         |  2233 |  $51.00 |
+| 1/4/2014 | February Extra Bandwidth |  2233 |  $30.00 |
+| 1/4/2014 | (Discount)               |  2233 |  -$1.00 |
++----------+--------------------------+-------+---------+
+|                                       TOTAL | $145.93 |
++----------+--------------------------+-------+---------+
+`
 		table, buf := NewBuffered(
 			WithHeader([]string{"Date", "Name", "Items", "Price"}),
 			WithFooter([]string{"", "", "Total", "$145.93"}),
@@ -1107,7 +1283,7 @@ func TestRowMaxWidth(t *testing.T) {
 
 		table.Render()
 
-		t.Log(buf.String())
+		checkEqual(t, buf.String(), expected)
 	})
 
 }
