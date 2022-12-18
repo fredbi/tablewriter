@@ -20,6 +20,11 @@ const (
 // difference of the length of the line and lim. Too-long lines (which only
 // happen when a single word is longer than lim units) have pen penalty units
 // added to the error.
+//
+// Notice an alternative approach there: https://github.com/mitchellh/go-wordwrap.
+//
+// NOTE(fred): the absolute reference ever written on that topic may be found here:
+// https://tug.org/TUGboat/tb21-3/tb68fine.pdf.
 func wrapWords(words []string, spc, limit, penalty int) [][]string {
 	lengths, maxWordLength := buildLengthsMatrix(words, spc)
 	n := len(lengths)

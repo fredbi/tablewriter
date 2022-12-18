@@ -8,6 +8,7 @@ type breakLevel int
 
 const (
 	breakOnBoundaries breakLevel = iota
+	// TODO: breakOnHyphenation breakLevel
 	breakAnywhere
 )
 
@@ -28,6 +29,7 @@ func breakWord(word string, limit int, aggressiveness breakLevel) []string {
 	}
 }
 
+// breakWordOnBoundarie will break a word along any non-letter or non-digit symbol.
 func breakWordOnBoundaries(word string, limit int) []string {
 	parts := breakAtFunc(word, WordBreaker)
 	lines := make([]string, 0, len(parts))
