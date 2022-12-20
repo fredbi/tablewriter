@@ -1228,7 +1228,7 @@ func TestMaxTableWidth(t *testing.T) {
 		{"1/4/2014", "    (Discount)", "2233", "-$1.00"},
 	}
 
-	t.Run("should render within global width constraint", func(t *testing.T) {
+	t.Run("should render within global width constraint (no word breaking)", func(t *testing.T) {
 		const expected = `+----------+------------+-------+---------+
 |   DATE   |    NAME    | ITEMS |  PRICE  |
 +----------+------------+-------+---------+
@@ -1253,15 +1253,14 @@ func TestMaxTableWidth(t *testing.T) {
 			WithHeader([]string{"Date", "Name", "Items", "Price"}),
 			WithFooter([]string{"", "", "Total", "$145.93"}),
 			WithRows(data),
-			WithMaxTableWidth(30),
+			WithMaxTableWidth(42),
 		)
-
 		table.Render()
 
 		checkEqual(t, buf.String(), expected)
 	})
 
-	t.Run("should render within local width constraint", func(t *testing.T) {
+	t.Run("should render within local width constraint (30 per column)", func(t *testing.T) {
 		const expected = `+----------+--------------------------+-------+---------+
 |   DATE   |           NAME           | ITEMS |  PRICE  |
 +----------+--------------------------+-------+---------+
@@ -1280,10 +1279,43 @@ func TestMaxTableWidth(t *testing.T) {
 			WithFooter([]string{"", "", "Total", "$145.93"}),
 			WithRows(data),
 		)
-
 		table.Render()
 
 		checkEqual(t, buf.String(), expected)
 	})
 
+	t.Run("should render and break words (27)", func(t *testing.T) {
+		const expected = `+----------+------------+-------+---------+
+|   DATE   |    NAME    | ITEMS |  PRICE  |
++----------+------------+-------+---------+
+| 1/1/2014 | Domain     |  2233 |  $10.98 |
+|          | name       |       |         |
+| 1/1/2014 | January    |  2233 |  $54.95 |
+|          | Hosting    |       |         |
+|          | (empty)    |       |         |
+|          | (empty)    |       |         |
+| 1/4/2014 | February   |  2233 |  $51.00 |
+|          | Hosting    |       |         |
+| 1/4/2014 | February   |  2233 |  $30.00 |
+|          | Extra      |       |         |
+|          | Bandwidth  |       |         |
+| 1/4/2014 | (Discount) |  2233 |  -$1.00 |
++----------+------------+-------+---------+
+|                         TOTAL | $145.93 |
++----------+------------+-------+---------+
+`
+
+		table, buf := NewBuffered(
+			WithHeader([]string{"Date", "Name", "Items", "Price"}),
+			WithFooter([]string{"", "", "Total", "$145.93"}),
+			WithRows(data),
+			WithMaxTableWidth(27),
+		)
+		table.Render()
+		require.Equal(t, 13, table.Overhead())
+
+		fmt.Println(buf.String())
+		// TODO
+		// checkEqual(t, buf.String(), expected)
+	})
 }

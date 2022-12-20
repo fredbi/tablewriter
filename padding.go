@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	rexNumerical = regexp.MustCompile(`^\s*((\+|-)?\pS)?(\+|-)?((\pN+?)|(\pN{3}[\s,]))+([\.,]\pN+)?(%|\pS|([eE][\+-]{0,1}\pN+))?\s*$`)
+	rexNumerical = regexp.MustCompile(`^\s*((\+|-)?\pS)?(\+|-)?((\pN+?)|(\pN{3}[\s,]))+([\.,]\pN*)?(%|\pS|([eE][\+-]{0,1}\pN+))?\s*$`)
 )
 
 // padder yields the appropriate padding function for the alignment type.

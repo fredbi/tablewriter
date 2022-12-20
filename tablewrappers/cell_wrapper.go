@@ -1,8 +1,5 @@
 package tablewrappers
 
-// "log"
-// "github.com/davecgh/go-spew/spew"
-
 type (
 	// RowWrapper wraps the content of a table with a single constraint on the table width.
 	RowWrapper struct {
@@ -46,6 +43,7 @@ func (w *DefaultCellWrapper) WrapCell(row, col int) []string {
 	return w.WrapString(w.matrix[row][col], limit)
 }
 
+// TODO: introduce colMaxWidth local limits for backward-compatible layout
 func NewRowWrapper(matrix [][]string, rowWidthLimit int, opts ...Option) *RowWrapper {
 	w := &RowWrapper{
 		wrapOptions: optionsWithDefaults(opts),
@@ -67,8 +65,7 @@ func (w *RowWrapper) WrapCell(row, col int) []string {
 }
 
 func (w *RowWrapper) prepare() {
-	// log.Printf("RowWrapper limit: %d", w.rowLimit)
-	if w.rowLimit < 0 {
+	if w.rowLimit < 0 || len(w.matrix) == 0 {
 		// short circuit: wrapping can't achieve the limit
 		w.noOp = true
 
@@ -76,49 +73,36 @@ func (w *RowWrapper) prepare() {
 	}
 
 	_, cols := buildMatrix(w.matrix, w.wordSplitter)
-	// log.Printf("RowWrapper TotalWidth: %d", cols.TotalWidth())
-	if cols.TotalWidth() < w.rowLimit {
+
+	currentWidth := cols.TotalWidth()
+	if currentWidth < w.rowLimit {
 		// short circuit: nothing to be wrapped
 		w.noOp = true
 
 		return
 	}
-	// spew.Dump(columns)
+
+	// TODO: preliminary check on single words: if some words are wider than the total width
+	// cols.BreakLongestWords(wordBreakLevel, w.rowLimit-currentWidth, w.wordSplitter)
+	// TODO: adaptable # buckets vs # rows in the matrix
+	// TODO: if maxWordLength in a column > limit : break words at once in this column
+	// TODO: if maxWordLength in a column + Sum(minWordLength) other columns > limit break words in this column
 
 	cols.SortRows() // each column gets its rows sorted by width, widest first
 	cols.Sort()     // columns get sorted, so that the first element is the widest
 
-	// TODO: run in passes
-	// 1. First pass: try wrapping columns, no word breaking
-	// 2. Word breaking on natural boundaries
-	// 2. Word breaking anywhere
-	// TODO: use lengths matrix in p-values
-LOOP:
-	for bucket := 0; bucket < buckets-1; bucket++ { // progressively more agressive: 90%-width, 80%-width, ...
-		for _, col := range cols { // iterate over columns, widest first
-			// log.Printf("assessing bucket[%d] col[%d]", bucket, col.j)
-			col.SetPValues(-9999) // computes the fixed-bucket histogram of widths (param to capture pass on words later on)
+	for _, wordBreakLevel := range []breakLevel{
+		breakNone,
+		breakOnSeps,
+		breakAnywhere,
+	} {
+		cols.BreakLongestWords(wordBreakLevel, currentWidth-w.rowLimit, w.wordSplitter)
 
-			limit := col.pvalues[bucket]
-			if limit > w.rowLimit { // maybe we should do this in a first pass
-				// log.Printf("skip to next bucket: p-value[%d]=%d (rowLimit=%d)", bucket, limit, w.rowLimit)
+		// shrink columns, widest-first
+		currentWidth = w.shrinkColumns(cols)
 
-				continue LOOP // the column p-value cannot work. Skip to the next bucket
-			}
-
-			if col.maxWidth <= limit {
-				// log.Printf("skip to next column: col.maxWidth=%d (limit=%d)", col.maxWidth, limit)
-
-				continue // the p-value for this bucket did not result in a signficant decrease. Skip to the next column.
-			}
-
-			// try with limiting the width to the max width of p% of values in this column
-			// log.Printf("RowWrapper WrapCells: %d [%T]", limit, col)
-			col.WrapCells(limit)
-
-			if col.TotalWidth() <= w.rowLimit {
-				break LOOP
-			}
+		if currentWidth <= w.rowLimit {
+			break
 		}
 	}
 
@@ -126,4 +110,42 @@ LOOP:
 	cols.SortNatural()
 
 	w.columns = cols
+}
+
+// shrinkColumns rebalances words in the cells of columns.
+// It returns the total width of the re-arranged table.
+//
+// This is a best-effort since this step doesn't break words.
+//
+// This function assesses the histogram of widths for columns, assuming columns come already sorted
+// widest-first, then shrinks each candidate column to the next bucket.
+func (w *RowWrapper) shrinkColumns(cols columns) int {
+	var currentWidth int
+
+LOOP:
+	for bucket := 0; bucket < numBuckets-1; bucket++ { // progressively more agressive: 90%-width, 80%-width, ...
+		for _, col := range cols { // iterate over columns, widest first
+			// if cols.NeedsWordBreak() ...
+
+			col.SetPValues(numBuckets) // computes the fixed-bucket histogram of widths (param to capture pass on words later on)
+			limit := col.pvalues[bucket]
+			if limit > w.rowLimit { // maybe we should do this in a first pass
+				continue LOOP // the column p-value cannot work. Skip to the next bucket
+			}
+
+			if col.maxWidth <= limit {
+				continue // the p-value for this bucket did not result in a signficant decrease. Skip to the next column.
+			}
+
+			// try with limiting the width to the max width of p% of values in this column
+			col.WrapCells(limit, w.wordSplitter)
+
+			currentWidth = col.TotalWidth()
+			if currentWidth <= w.rowLimit {
+				return currentWidth
+			}
+		}
+	}
+
+	return currentWidth
 }

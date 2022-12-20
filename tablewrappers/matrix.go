@@ -1,20 +1,21 @@
 package tablewrappers
 
 import (
-	// "log"
+	"math"
 	"sort"
 	"strings"
-	// "github.com/davecgh/go-spew/spew"
 )
 
-// buckets to determine p-values.
+// numBuckets to determine p-values.
+//
 // For instance with buckets = 10, we'll have buckets as deciles: 10%; 20%, ..., 90%
-const buckets = 10
+const numBuckets = 10
 
 type (
 	columns []*column
 	cells   []*cell
 	rows    []*row
+	ratios  []ratio
 
 	column struct {
 		j        int
@@ -31,14 +32,18 @@ type (
 	}
 
 	cell struct {
-		i       int
-		j       int
-		content []string
-		words   []string
-		width   int
-		// passNo      int // TODO
+		i             int
+		j             int
+		content       []string
+		width         int
 		wordLengths   [][]int // triangular matrix of paragraphs made up with words
 		maxWordLength int
+		minWordLength int
+	}
+
+	ratio struct {
+		j int
+		r float64
 	}
 )
 
@@ -50,11 +55,12 @@ func newCell(i, j int, content []string, splitter Splitter) *cell {
 		width:   cellWidth(content),
 	}
 
-	for _, line := range content {
-		c.words = append(c.words, strings.FieldsFunc(line, splitter)...)
+	words := []string{}
+	for _, line := range c.content {
+		words = append(words, strings.FieldsFunc(line, splitter)...)
 	}
 
-	c.wordLengths, c.maxWordLength = buildLengthsMatrix(c.words, 1) // build a matrix of the lengths of all word arrangements into single-line paragraphs [this is done once]
+	c.wordLengths, c.maxWordLength, c.minWordLength = buildLengthsMatrix(words, 1) // build a matrix of the lengths of all word arrangements into single-line paragraphs [this is done once]
 
 	return c
 }
@@ -159,6 +165,7 @@ func (c columns) SortNatural() {
 	})
 }
 
+// TotalWidth yields the width of the table, adding up the max width of all columns.
 func (c columns) TotalWidth() int {
 	total := 0
 
@@ -167,6 +174,103 @@ func (c columns) TotalWidth() int {
 	}
 
 	return total
+}
+
+// WordMaxWiths returns the maximum single word length in the set of colums.
+// The result is provided in the order of the columns collection.
+func (c columns) WordMaxWidths() ([]int, int) {
+	wordWidths := make([]int, 0, len(c))
+	var total int
+
+	for _, col := range c {
+		w := col.WordMaxWidth()
+		wordWidths = append(wordWidths, w)
+		total += w
+	}
+
+	return wordWidths, total
+}
+
+func newRatio(j int, r float64) ratio {
+	return ratio{
+		j: j,
+		r: r,
+	}
+}
+
+func (r ratios) Len() int {
+	return len(r)
+}
+
+func (r ratios) Swap(i, j int) {
+	r[i], r[j] = r[j], r[i]
+}
+
+func (r ratios) Less(i, j int) bool {
+	return r[i].r > r[j].r
+}
+
+func (r ratios) Sort() {
+	sort.Stable(r)
+}
+
+func (r ratios) SortNatural() {
+	sort.Slice(r, func(i, j int) bool {
+		return r[i].j < r[j].j
+	})
+}
+
+// WordLengthTargets computes the target lengths for colums,
+// spreading word-breaking across columns according to their
+// respective maximum // word lengths:
+// longest words get broken more aggressively.
+func (c columns) WordLengthTargets(gap int) []int {
+	wordWidths, total := c.WordMaxWidths()
+
+	spreads := make(ratios, len(wordWidths))
+	for j := range wordWidths {
+		spreads[j] = newRatio(j, float64(wordWidths[j])/float64(total))
+	}
+	spreads.Sort()
+
+	var (
+		sum  int
+		full bool
+	)
+	for _, spread := range spreads {
+		redux := int(math.Ceil(float64(gap) * spread.r))
+		if sum >= gap {
+			if !full {
+				wordWidths[spread.j] -= redux - (gap - sum)
+				full = true // full gap is attained
+			}
+
+			continue
+		}
+
+		sum += redux
+		wordWidths[spread.j] -= redux
+	}
+
+	return wordWidths
+}
+
+// BreakLongestWords breaks down the longest words in a set of colums in order to tentatively
+// reduce the provided gap.
+//
+// "gap" is the width reduction target.
+func (c columns) BreakLongestWords(wordBreakLevel breakLevel, gap int, splitter Splitter) {
+	if wordBreakLevel == breakNone || gap <= 0 {
+		return
+	}
+
+	for j, col := range c {
+		targets := c.WordLengthTargets(gap) // targets are refreshed after every break.
+		col.BreakLongestWords(wordBreakLevel, targets[j], splitter)
+
+		// update the max width of the column
+		col.maxWidth = cellsMaxWidth(col.Values())
+	}
 }
 
 func (c cells) Less(i, j int) bool {
@@ -179,6 +283,10 @@ func (c cells) Len() int {
 
 func (c cells) Swap(i, j int) {
 	c[i], c[j] = c[j], c[i]
+}
+
+func (c cells) Sort() {
+	sort.Stable(c)
 }
 
 func (c cells) TotalWidth() int {
@@ -264,17 +372,17 @@ func (c column) Rows() rows {
 	return c.rows
 }
 
-func (c *column) SetPValues(_ int) {
-	// TODO: use word-level widths to enrich the histogram
-	sort.Stable(c.cells)
+// SetPValues computes the quantile values on a column widths.
+//
+// This ways we know the width thresholds that affect x% of the cells in a column.
+func (c *column) SetPValues(buckets int) {
+	c.cells.Sort()
 	sum := 0.00
 	cdf := make([]float64, 0, len(c.cells))
 	pvalues := make([]int, 0, buckets-1)
-	// spew.Dump(c.cells)
 
 	for i := len(c.cells) - 1; i >= 0; i-- {
 		sum += float64(c.cells[i].width)
-		// log.Printf("DEBUG: cell[i=%d] width=%d, sum=%f", i, c.cells[i].width, sum)
 		cdf = append(cdf, sum)
 	}
 
@@ -285,23 +393,18 @@ func (c *column) SetPValues(_ int) {
 
 	LOOP:
 		for bucket := 1; bucket < buckets; bucket++ { // at most buckets - 1 pvalues
-			// log.Printf("search pvalue for bucket[%d]", bucket)
 			threshold := 1 - float64(bucket)/float64(buckets) // e.g: 90% for bucket 1, 80% for bucket 2, etc.
 
 			for i := len(cdf) - 1; i >= 0; i-- {
-				// log.Printf("cdf[%d] for bucket[%d]", i, bucket)
 				val := cdf[i]
 				var next float64
 				if i < len(cdf)-1 {
 					next = cdf[i+1]
 				}
 
-				// log.Printf("DEBUG: bucket[%d], i=%d, val=%f, next=%f, threshold=%f", bucket, i, val, next, threshold)
-
 				if val <= threshold && (next > threshold || i >= len(cdf)-1) {
 					// the captured pvalue represents the width under which fall bucket/buckets of cells in this column
 					pvalue := c.cells[i].width
-					// log.Printf("DEBUG: bucket[%d], i+lastBucket=%d, pvalue=%d", bucket, i, pvalue)
 					pvalues = append(pvalues, pvalue)
 
 					break
@@ -321,11 +424,11 @@ func (c *column) SetPValues(_ int) {
 	}
 
 	sort.Sort(sort.Reverse(sort.IntSlice(pvalues)))
-	// log.Printf("DEBUG: pvalues: %v", pvalues)
 
 	c.pvalues = pvalues
 }
 
+// Values returns the multiline content of all cells in a colum.
 func (c column) Values() [][]string {
 	values := make([][]string, len(c.rows))
 
@@ -353,23 +456,22 @@ func (c column) Values() [][]string {
 //
 // NOTE: we don't update the p-values, which remain in their initial state.
 // No need to update the word lengths matrix.
-func (c *column) WrapCells(limit int) {
-	// log.Printf("before")
-	// spew.Dump(c.cells)
+func (c *column) WrapCells(limit int, splitter Splitter) {
 	for _, cell := range c.cells {
 		if limit >= cell.width {
 			continue
 		}
-		//log.Printf("wrapping cell [col=%d][row=%d][limit: %d] %q", c.j, cell.i, limit, cell.words)
 
-		lines := wrapMultiline(cell.words, limit) // wrap whole words over multiple lines
+		lines := make([]string, 0, len(cell.content))
+		for _, line := range cell.content {
+			words := strings.FieldsFunc(line, splitter)
+			lines = append(lines, wrapMultiline(words, limit)...) // wrap whole words over multiple lines
+		}
 		cell.content = lines
 		cell.width = cellWidth(lines)
 	}
 
 	c.maxWidth = cellsMaxWidth(c.Values())
-	// log.Printf("after")
-	// spew.Dump(c.cells)
 }
 
 // TotalWidth is the total width of all the rows that this column contains.
@@ -383,4 +485,66 @@ func (c column) TotalWidth() int {
 	}
 
 	return maxTotal
+}
+
+// WordMaxWidth yields the width of the widest single word in the column.
+func (c column) WordMaxWidth() int {
+	var maxWidth int
+
+	for _, cell := range c.cells {
+		for i := range cell.wordLengths {
+			maxWidth = max(maxWidth, cell.wordLengths[i][i])
+		}
+	}
+
+	return maxWidth
+}
+
+// BreakLongestWords breaks words larger than limit in all this column's cells.
+func (c *column) BreakLongestWords(wordBreakLevel breakLevel, limit int, splitter Splitter) {
+	if wordBreakLevel == breakNone {
+		return
+	}
+
+	for _, cell := range c.cells {
+		if cellWidth(cell.content) <= limit {
+			continue // unchanged cell
+		}
+
+		newLines := make([]string, 0, len(cell.content))
+
+		for _, line := range cell.content {
+			if displayWidth(line) <= limit {
+				newLines = append(newLines, line) // unchanged line
+
+				continue
+			}
+
+			wordsOnTheLine := newWords(strings.FieldsFunc(line, splitter))
+			wordsOnTheLine.Sort() // widest word on the line comes first
+
+			for _, word := range wordsOnTheLine {
+				word.Break(limit, wordBreakLevel)
+				if wordsOnTheLine.Width() <= limit { // enough word-breaking for abide by this limit
+					break
+				}
+			}
+
+			wordsOnTheLine.SortNatural() // return to the original ordering of words
+
+			for _, word := range wordsOnTheLine {
+				newLines = append(newLines, word.parts...)
+			}
+		}
+
+		cell.content = newLines
+
+		words := []string{}
+		for _, line := range cell.content {
+			words = append(words, strings.FieldsFunc(line, splitter)...)
+		}
+
+		cell.wordLengths, cell.maxWordLength, cell.minWordLength = buildLengthsMatrix(words, 1) // updates the matrix of the lengths of all word arrangements into single-line paragraphs [this is done once]
+		cell.width = cellWidth(cell.content)
+	}
 }

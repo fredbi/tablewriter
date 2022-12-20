@@ -28,7 +28,6 @@ func max(a, b int) int {
 	return b
 }
 
-/*
 func min(a, b int) int {
 	if a < b {
 		return a
@@ -36,7 +35,6 @@ func min(a, b int) int {
 
 	return b
 }
-*/
 
 // CellWidth determines the displayed width of a multi-lines cell.
 func CellWidth(lines []string) int {

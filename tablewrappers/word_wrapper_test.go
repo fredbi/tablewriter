@@ -9,8 +9,9 @@ import (
 func TestWordWrapper(t *testing.T) {
 	t.Parallel()
 
-	matrix, maxWordLength := buildLengthsMatrix([]string{"characters", "too", "long"}, 1)
+	matrix, maxWordLength, minWordLength := buildLengthsMatrix([]string{"characters", "too", "long"}, 1)
 	require.Equal(t, 10, maxWordLength)
+	require.Equal(t, 3, minWordLength)
 	require.EqualValues(t,
 		[][]int{{10, 14, 19}, {0, 3, 8}, {0, 0, 4}},
 		matrix,

@@ -27,9 +27,11 @@ func (w *DefaultWrapper) WrapString(s string, limit int) []string {
 	limit = max(limit, cellWidth(words))       // readjust limit to maximum width of a single word
 	lines := wrapMultiline(words, limit)
 
-	if w.strictWidth {
-		// wrap harder -- TODO(fred)
-	}
+	/*
+		if w.strictWidth {
+			// wrap harder -- TODO(fred)
+		}
+	*/
 
 	return lines
 }

@@ -25,8 +25,9 @@ const (
 //
 // NOTE(fred): the absolute reference ever written on that topic may be found here:
 // https://tug.org/TUGboat/tb21-3/tb68fine.pdf.
+// https://fdocuments.net/document/breaking-paragraphs-into-lines-github-pages-donald-e-knuth-and-michael-f-plass.html?page=9
 func wrapWords(words []string, spc, limit, penalty int) [][]string {
-	lengths, maxWordLength := buildLengthsMatrix(words, spc)
+	lengths, maxWordLength, _ := buildLengthsMatrix(words, spc)
 	n := len(lengths)
 	nbrk := make([]int, n)
 	costVector := initCosts(n)
@@ -90,16 +91,24 @@ func stripEmpty(words []string) []string {
 }
 
 // buildLengthsMatrix builds an upper triangular matrix of increasing lengths when assembling words.
-func buildLengthsMatrix(words []string, spc int) ([][]int, int) {
+func buildLengthsMatrix(words []string, spc int) ([][]int, int, int) {
 	n := len(words)
 	length := make([][]int, n)
-	var maxWordLength int
+	var (
+		maxWordLength int
+		minWordLength int
+	)
 
 	for i := 0; i < n; i++ {
 		length[i] = make([]int, n)
-		//length[i][i] = runewidth.StringWidth(words[i]) // TODO: use displayWidth(str string) to strip control sequences
-		length[i][i] = displayWidth(words[i]) // TODO: use displayWidth(str string) to strip control sequences
+		length[i][i] = displayWidth(words[i])
+
 		maxWordLength = max(maxWordLength, length[i][i])
+		if minWordLength == 0 {
+			minWordLength = length[i][i]
+		} else {
+			minWordLength = min(minWordLength, length[i][i])
+		}
 	}
 
 	for i := 0; i < n; i++ {
@@ -112,7 +121,7 @@ func buildLengthsMatrix(words []string, spc int) ([][]int, int) {
 		}
 	}
 
-	return length, maxWordLength
+	return length, maxWordLength, minWordLength
 }
 
 func initCosts(n int) []int {
