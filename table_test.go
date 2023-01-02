@@ -1253,9 +1253,10 @@ func TestMaxTableWidth(t *testing.T) {
 			WithHeader([]string{"Date", "Name", "Items", "Price"}),
 			WithFooter([]string{"", "", "Total", "$145.93"}),
 			WithRows(data),
-			WithMaxTableWidth(42),
+			WithMaxTableWidth(43),
 		)
 		table.Render()
+		fmt.Println(buf.String())
 
 		checkEqual(t, buf.String(), expected)
 	})
@@ -1317,5 +1318,41 @@ func TestMaxTableWidth(t *testing.T) {
 		fmt.Println(buf.String())
 		// TODO
 		// checkEqual(t, buf.String(), expected)
+	})
+}
+
+func TestMaxTableWidthLong(t *testing.T) {
+	data := [][]string{
+		{"Medium", "Cluster internal networking", "https://hub.armosec.io/docs/c-0054", ""},
+		{"Medium", "Create administrative boundaries between resources using namespaces", "https://hub.armosec.io/docs/cis-5-7-1"},
+		{"Medium", "Ensure that all Namespaces have Network Policies defined", "https://hub.armosec.io/docs/cis-5-3-2"},
+		{"Low", "Network mapping", "https://hub.armosec.io/docs/c-0049"},
+	}
+
+	headers := []string{
+		"SEVERITY", "CONTROL NAME", "DOCS", "ASSISTANT REMEDIATION",
+	}
+
+	t.Run("should render and break words (60)", func(t *testing.T) {
+		table, buf := NewBuffered(
+			WithHeader(headers),
+			WithRows(data),
+			WithMaxTableWidth(60),
+		)
+		table.Render()
+		require.Equal(t, 13, table.Overhead())
+		fmt.Println(buf.String())
+	})
+
+	t.Run("should render with merged cells and break words (60)", func(t *testing.T) {
+		table, buf := NewBuffered(
+			WithHeader(headers),
+			WithRows(data),
+			WithMergeCells(true),
+			WithMaxTableWidth(60),
+		)
+		table.Render()
+		require.Equal(t, 13, table.Overhead())
+		fmt.Println(buf.String())
 	})
 }

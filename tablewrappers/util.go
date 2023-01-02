@@ -6,39 +6,31 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-var ansi = regexp.MustCompile("\033\\[(?:[0-9]{1,3}(?:;[0-9]{1,3})*)?[m|K]")
+var (
+	rexANSI = regexp.MustCompile(
+		"\033\\[(?:[0-9]{1,3}(?:;[0-9]{1,3})*)?[m|K]",
+	)
+
+	rexStripANSI = regexp.MustCompile(
+		"^((?:\033\\[(?:[0-9]{1,3}(?:;[0-9]{1,3})*)?[m|K])*?)?([^\033]*)*?((?:\033\\[(?:[0-9]{1,3}(?:;[0-9]{1,3})*)?[m|K])*)?$",
+	)
+)
 
 // DisplayWidth yields the size of a string when rendered on a terminal.
 //
-// ANSI escape sequences are discared.
+// ANSI escape sequences are discarded from this count.
 func DisplayWidth(str string) int {
 	return displayWidth(str)
-}
-
-// how about unicode.IsControl()?
-func displayWidth(str string) int {
-	return runewidth.StringWidth(ansi.ReplaceAllLiteralString(str, ""))
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-
-	return b
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-
-	return b
 }
 
 // CellWidth determines the displayed width of a multi-lines cell.
 func CellWidth(lines []string) int {
 	return cellWidth(lines)
+}
+
+// displayWidth yields the display size of string on a terminal.
+func displayWidth(str string) int {
+	return runewidth.StringWidth(rexANSI.ReplaceAllLiteralString(str, ""))
 }
 
 // cellWidth returns the display width of a multi-line cell.
@@ -67,4 +59,40 @@ func cellsMaxWidth(rows [][]string) int {
 	}
 
 	return maxWidth
+}
+
+func stripANSI(str string) (string, string, string) {
+	matches := rexStripANSI.FindAllStringSubmatch(str, -1)
+	if len(matches) == 0 {
+		return str, "", ""
+	}
+	groups := matches[0] // TODO: what if several ansi wrapped around a single word???
+	if len(groups) < 2 {
+		return str, "", ""
+	}
+
+	switch len(groups) {
+	case 2:
+		return "", groups[1], ""
+	case 3:
+		return groups[2], groups[1], ""
+	default:
+		return groups[2], groups[1], groups[3]
+	}
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+
+	return b
 }

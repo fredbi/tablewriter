@@ -79,6 +79,19 @@ func TestBreakWord(t *testing.T) {
 			breakWord("ABC|1234.345", 9, lvl),
 		)
 	})
+
+	t.Run("should not break word inside ANSI escape sequences", func(t *testing.T) {
+		t.Parallel()
+
+		lvl := breakAnywhere
+
+		const input = "\033[43;30mABCDEF\033[00m"
+		require.Equal(t,
+			[]string{"\033[43;30mAB", "CD\033[00m]"},
+			breakWord(input, 4, lvl),
+		)
+
+	})
 }
 
 func TestWords(t *testing.T) {

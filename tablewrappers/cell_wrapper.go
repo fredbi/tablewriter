@@ -1,5 +1,9 @@
 package tablewrappers
 
+import (
+// "log"
+)
+
 type (
 	// RowWrapper wraps the content of a table with a single constraint on the table width.
 	RowWrapper struct {
@@ -43,7 +47,8 @@ func (w *DefaultCellWrapper) WrapCell(row, col int) []string {
 	return w.WrapString(w.matrix[row][col], limit)
 }
 
-// TODO: introduce colMaxWidth local limits for backward-compatible layout
+// TODO: introduce colMinWidth, colMaxWidth local limits for backward-compatible layout
+// TODO: bug wrapping control sequences bugs when words are broken
 func NewRowWrapper(matrix [][]string, rowWidthLimit int, opts ...Option) *RowWrapper {
 	w := &RowWrapper{
 		wrapOptions: optionsWithDefaults(opts),
@@ -100,11 +105,13 @@ func (w *RowWrapper) prepare() {
 
 		// shrink columns, widest-first
 		currentWidth = w.shrinkColumns(cols)
+		// log.Printf("DEBUG: current width after shrink=%d", currentWidth)
 
 		if currentWidth <= w.rowLimit {
 			break
 		}
 	}
+	// log.Printf("DEBUG: last current width=%d", currentWidth)
 
 	// reorder columns and rows by their natural order
 	cols.SortNatural()
@@ -125,10 +132,13 @@ func (w *RowWrapper) shrinkColumns(cols columns) int {
 LOOP:
 	for bucket := 0; bucket < numBuckets-1; bucket++ { // progressively more agressive: 90%-width, 80%-width, ...
 		for _, col := range cols { // iterate over columns, widest first
-			// if cols.NeedsWordBreak() ...
-
 			col.SetPValues(numBuckets) // computes the fixed-bucket histogram of widths (param to capture pass on words later on)
-			limit := col.pvalues[bucket]
+			limit := max(col.pvalues[bucket], w.minColWidth[col.j])
+
+			if maxw := w.maxColWidth[col.j]; maxw > 0 {
+				limit = min(limit, maxw)
+			}
+
 			if limit > w.rowLimit { // maybe we should do this in a first pass
 				continue LOOP // the column p-value cannot work. Skip to the next bucket
 			}
@@ -140,7 +150,7 @@ LOOP:
 			// try with limiting the width to the max width of p% of values in this column
 			col.WrapCells(limit, w.wordSplitter)
 
-			currentWidth = col.TotalWidth()
+			currentWidth = col.TotalRowWidth()
 			if currentWidth <= w.rowLimit {
 				return currentWidth
 			}

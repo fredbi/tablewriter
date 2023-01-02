@@ -10,9 +10,9 @@ type (
 
 var (
 	BlankSplitter = unicode.IsSpace
-	PunctSplitter = unicode.IsPunct
 	LineSplitter  = func(r rune) bool { return r == '\n' || r == '\r' }
-	WordBreaker   = func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }
+	WordBreaker   = func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) && !unicode.IsControl(r) }
+	// PunctSplitter = unicode.IsPunct
 )
 
 func composeSplitters(splitters []Splitter) Splitter {

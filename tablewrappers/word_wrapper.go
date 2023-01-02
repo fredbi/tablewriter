@@ -78,6 +78,7 @@ func wrapWords(words []string, spc, limit, penalty int) [][]string {
 	return lines
 }
 
+// stripEmpty prunes empty strings for a list of words.
 func stripEmpty(words []string) []string {
 	out := make([]string, 0, len(words))
 	for _, word := range words {
@@ -134,11 +135,50 @@ func initCosts(n int) []int {
 	return costVector
 }
 
-func wrapMultiline(words []string, limit int) []string {
+func wrapMultiline(words []string, limit, spc int) []string {
 	var lines []string
+	/*
+		startEsc string
+		endEsc   string
+	*/
 
-	for _, words := range wrapWords(words, 1, limit, defaultPenalty) {
-		lines = append(lines, strings.Join(words, space))
+	pad := strings.Repeat(space, spc)
+	/*
+				for _, word := range wordList {
+		//word_wrappero_test.go:107: ["\x1b[43;30mABC" "XYZ" "123\x1b[00m"]
+					stripped, start, end := stripANSI(word)
+
+					switch {
+					case start != "" && end == "":
+						if endEsc != "" {
+							stripped = endEsc + stripped
+							endEsc = ""
+						}
+						if startEsc != "" {
+							stripped = startEsc + stripped
+						}
+						startEsc = start
+						wordList[i] = stripped
+					case start == "" && end != "":
+						if endEsc != "" {
+							stripped = endEsc + stripped
+						}
+						if startEsc != "" {
+							stripped = startEsc + stripped
+							startEsc = ""
+						}
+						endEsc = end
+						wordList[i] = stripped
+					}
+
+				}
+
+				if startEsc != "" {
+					wordList[0]
+				}
+	*/
+	for _, wordList := range wrapWords(words, 1, limit, defaultPenalty) {
+		lines = append(lines, strings.Join(wordList, pad))
 	}
 
 	if len(lines) == 0 {

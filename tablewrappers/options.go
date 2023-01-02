@@ -4,8 +4,10 @@ type (
 	Option func(*wrapOptions)
 
 	wrapOptions struct {
-		strictWidth bool
+		strictWidth bool // TODO for StringWrapper
 		splitters   []Splitter
+		minColWidth map[int]int
+		maxColWidth map[int]int
 	}
 )
 
@@ -15,6 +17,8 @@ func optionsWithDefaults(opts []Option) *wrapOptions {
 			BlankSplitter,
 			LineSplitter,
 		},
+		minColWidth: make(map[int]int),
+		maxColWidth: make(map[int]int),
 	}
 
 	for _, apply := range opts {
@@ -38,3 +42,17 @@ func WithWrapStrictMaxWidth(enabled bool) Option {
 		o.strictWidth = enabled
 	}
 }
+
+func WithColMinWidth(column int, width int) Option {
+	return func(o *wrapOptions) {
+		o.minColWidth[column] = width
+	}
+}
+
+func WithColMaxWidth(column int, width int) Option {
+	return func(o *wrapOptions) {
+		o.maxColWidth[column] = width
+	}
+}
+
+// TODO: NoColWordBreak(cols ...int) Option

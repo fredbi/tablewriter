@@ -25,7 +25,7 @@ func NewDefault(opts ...Option) *DefaultWrapper {
 func (w *DefaultWrapper) WrapString(s string, limit int) []string {
 	words := strings.FieldsFunc(s, w.splitter) // default: splits according to blanks & lines
 	limit = max(limit, cellWidth(words))       // readjust limit to maximum width of a single word
-	lines := wrapMultiline(words, limit)
+	lines := wrapMultiline(words, limit, 1)
 
 	/*
 		if w.strictWidth {

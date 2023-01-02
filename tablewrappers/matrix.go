@@ -1,9 +1,11 @@
 package tablewrappers
 
 import (
+	// "log"
 	"math"
 	"sort"
 	"strings"
+	// "github.com/davecgh/go-spew/spew"
 )
 
 // numBuckets to determine p-values.
@@ -18,23 +20,26 @@ type (
 	ratios  []ratio
 
 	column struct {
-		j        int
-		maxWidth int
-		rows     rows
-		cells    cells
-		pvalues  []int
+		j          int
+		maxWidth   int
+		rows       rows
+		cells      cells
+		pvalues    []int
+		minAllowed int // TODO
+		maxAllowed int
 	}
 
 	row struct {
-		i          int
-		totalWidth int
-		cells      cells
+		i     int
+		cells cells
 	}
 
 	cell struct {
-		i             int
-		j             int
-		content       []string
+		i       int
+		j       int
+		content []string
+		// TODO: should index content that comes from break words
+
 		width         int
 		wordLengths   [][]int // triangular matrix of paragraphs made up with words
 		maxWordLength int
@@ -97,9 +102,8 @@ func newColumn(j int, rows rows) *column {
 
 func newRow(i int, cells cells) *row {
 	return &row{
-		i:          i,
-		cells:      cells,
-		totalWidth: cells.TotalWidth(),
+		i:     i,
+		cells: cells,
 	}
 }
 
@@ -237,19 +241,20 @@ func (c columns) WordLengthTargets(gap int) []int {
 		sum  int
 		full bool
 	)
+
 	for _, spread := range spreads {
-		redux := int(math.Ceil(float64(gap) * spread.r))
+		reduction := int(math.Ceil(float64(gap) * spread.r))
+		sum += reduction
 		if sum >= gap {
 			if !full {
-				wordWidths[spread.j] -= redux - (gap - sum)
-				full = true // full gap is attained
+				reduction -= sum - gap
+				full = true
+			} else {
+				reduction = 0
 			}
-
-			continue
 		}
 
-		sum += redux
-		wordWidths[spread.j] -= redux
+		wordWidths[spread.j] -= reduction
 	}
 
 	return wordWidths
@@ -320,7 +325,7 @@ func (c cells) SortNatural() {
 }
 
 func (c rows) Less(i, j int) bool {
-	return c[i].totalWidth > c[j].totalWidth
+	return c[i].cells.TotalWidth() > c[j].cells.TotalWidth()
 }
 
 func (c rows) Len() int {
@@ -465,7 +470,7 @@ func (c *column) WrapCells(limit int, splitter Splitter) {
 		lines := make([]string, 0, len(cell.content))
 		for _, line := range cell.content {
 			words := strings.FieldsFunc(line, splitter)
-			lines = append(lines, wrapMultiline(words, limit)...) // wrap whole words over multiple lines
+			lines = append(lines, wrapMultiline(words, limit, 1)...) // wrap whole words over multiple lines
 		}
 		cell.content = lines
 		cell.width = cellWidth(lines)
@@ -475,13 +480,21 @@ func (c *column) WrapCells(limit int, splitter Splitter) {
 }
 
 // TotalWidth is the total width of all the rows that this column contains.
-func (c column) TotalWidth() int {
+func (c column) TotalRowWidth() int {
+	maxPerColumn := make(map[int]int)
 	maxTotal := 0
 
 	for _, row := range c.rows {
-		if w := row.TotalWidth(); w > maxTotal {
-			maxTotal = w
+		// log.Printf("DEBUG: row with=%d", row.TotalWidth())
+		for _, cell := range row.cells {
+			if w := cell.width; w > maxPerColumn[cell.j] {
+				maxPerColumn[cell.j] = w
+			}
 		}
+	}
+
+	for _, w := range maxPerColumn {
+		maxTotal += w
 	}
 
 	return maxTotal
@@ -513,7 +526,7 @@ func (c *column) BreakLongestWords(wordBreakLevel breakLevel, limit int, splitte
 
 		newLines := make([]string, 0, len(cell.content))
 
-		for _, line := range cell.content {
+		for _, line := range cell.content { // iterate over the lines in this cell
 			if displayWidth(line) <= limit {
 				newLines = append(newLines, line) // unchanged line
 
@@ -525,7 +538,7 @@ func (c *column) BreakLongestWords(wordBreakLevel breakLevel, limit int, splitte
 
 			for _, word := range wordsOnTheLine {
 				word.Break(limit, wordBreakLevel)
-				if wordsOnTheLine.Width() <= limit { // enough word-breaking for abide by this limit
+				if wordsOnTheLine.Width() <= limit { // enough word-breaking to abide by this limit
 					break
 				}
 			}
@@ -533,9 +546,13 @@ func (c *column) BreakLongestWords(wordBreakLevel breakLevel, limit int, splitte
 			wordsOnTheLine.SortNatural() // return to the original ordering of words
 
 			for _, word := range wordsOnTheLine {
+				// parts := wrapMultiline(word.parts, limit, 0)
+				// log.Printf("DEBUG: after rewrap (%d): => %v", limit, parts)
 				newLines = append(newLines, word.parts...)
 			}
 		}
+		// TODO: figure out how to break/not break when there are control chars
+		// TODO: implement backtracking logic on word breaking - ugh!
 
 		cell.content = newLines
 

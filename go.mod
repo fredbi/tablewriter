@@ -12,7 +12,10 @@ require (
 )
 
 require (
+	github.com/dghubble/trie v0.0.0-20220811160003-18e0eff3ca7b // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/fredbi/tablewriter/internal/wordbreaker => /home/fred/src/github.com/fredbi/tablewriter/tablewrappers/internal/wordbreaker

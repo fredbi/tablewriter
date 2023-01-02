@@ -1,6 +1,7 @@
 package tablewrappers
 
 import (
+	// "log"
 	"sort"
 	"strings"
 )
@@ -100,7 +101,9 @@ func (w *word) Break(limit int, aggressiveness breakLevel) {
 		newParts = append(newParts, breakWord(part, limit, aggressiveness)...)
 	}
 
-	w.parts = newParts
+	// log.Printf("DEBUG: break word (%d): %v => %v", limit, w.parts, newParts)
+
+	w.parts = newParts // TODO
 }
 
 // breakWord breaks a word with some aggressiveness into parts smaller than the given limit.
@@ -128,6 +131,7 @@ func wordBreaker(splitter Splitter) func(string, int) []string {
 		lines := make([]string, 0, len(parts))
 
 		for _, part := range wrapWords(parts, 0, limit, defaultPenalty) {
+			// stripped, start, end := stripANSI(word)
 			lines = append(lines, strings.Join(part, ""))
 		}
 
@@ -140,18 +144,23 @@ func wordBreaker(splitter Splitter) func(string, int) []string {
 	}
 }
 
-// breakAtFunc works like strings.FieldsFunc, but retain separators.
+// breakAtFunc works like strings.FieldsFunc, but retains separators.
 //
 // Break always happen _after_ the separator.
 func breakAtFunc(word string, isBreak Splitter) []string {
 	parts := make([]string, 0, len(word))
 	previous := 0
 
+	var runesWidth int
 	for i, r := range word {
-		if isBreak(r) {
-			parts = append(parts, word[previous:i+1])
-			previous = i + 1
+		widthWithRune := displayWidth(word[previous : i+1])
+		if !isBreak(r) || widthWithRune <= runesWidth {
+			continue
 		}
+
+		runesWidth = widthWithRune
+		parts = append(parts, word[previous:i+1])
+		previous = i + 1
 	}
 
 	if previous < len(word) {
